@@ -5,6 +5,7 @@ import type { EngineInterface, Register } from 'claude-code'
 const ASSISTANT_BG = '#33302e'
 const USER_BG = '#4a3226'
 const ERROR = '#e07a6a'
+const TAG = '#8a7d74'
 
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
@@ -51,7 +52,7 @@ type Elements = { Box: any; Text: any }
  * blank row, and a tool line does too when it follows a message (gapBefore).
  * So two neighbours never stack two blank rows (margin collapse by hand).
  */
-function panel({ Box, Text }: Elements, color: string, body: unknown) {
+function panel({ Box, Text }: Elements, color: string, body: unknown, tag?: string) {
   return (
     <Box marginTop={1} flexDirection="column" overflow="hidden">
       <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
@@ -63,6 +64,11 @@ function panel({ Box, Text }: Elements, color: string, body: unknown) {
       <Box position="absolute" right={0} top={0} bottom={0} width={1}>
         <Text color={color}>{RIGHT_EDGE}</Text>
       </Box>
+      {tag ? (
+        <Box position="absolute" right={3} top={0}>
+          <Text color={TAG}>{tag}</Text>
+        </Box>
+      ) : null}
     </Box>
   )
 }
@@ -76,7 +82,7 @@ type Block = { type: string; id?: unknown; text?: unknown }
  * that carries tool results is the engine's plumbing (its text blocks are
  * reminders), not a prompt row.
  */
-function callsAfterMessages(messages: ReadonlyArray<{ role: string; content: readonly Block[] }>): Set<string> {
+function callsAfterMessages(messages: ReadonlyArray<{ role: string; content: readonly Block[] }>): { after: Set<string>; last: 'message' | 'tool' } {
   const after = new Set<string>()
   let previous: 'message' | 'tool' = 'message'
   for (const message of messages) {
@@ -94,14 +100,19 @@ function callsAfterMessages(messages: ReadonlyArray<{ role: string; content: rea
       }
     }
   }
-  return after
+  return { after, last: previous }
 }
 
 /** One blank row above a tool line that follows a message, none after another tool line. */
 async function gapBefore($: EngineInterface, id: string | undefined): Promise<number> {
   if (!id) return 0
   const messages = await $.session.messages({ as: 'api' })
-  return callsAfterMessages(messages).has(id) ? 1 : 0
+  const { after, last } = callsAfterMessages(messages)
+  if (after.has(id)) return 1
+  // A call of the reply still streaming is not in the list yet: it comes after
+  // everything there, so the last visible row decides.
+  const listed = messages.some(m => m.content.some(b => b.type === 'tool_use' && b.id === id))
+  return !listed && last === 'message' ? 1 : 0
 }
 
 /** Whether the tree holds the engine's own drawing anywhere. */
@@ -116,13 +127,14 @@ export const register: Register = on => {
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
   // (text between tool calls, condensed) draws the same way; it loses the
-  // engine's faint `· summary` mark, and ctrl+o still shows the full text.
+  // engine's faint `· summary` mark, so it carries a `summary` tag of its own in
+// the top padding row; ctrl+o still shows the full text.
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, ASSISTANT_BG, body)
+    return panel(elements, ASSISTANT_BG, body, e.props.isSummary ? 'summary' : undefined)
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
