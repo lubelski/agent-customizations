@@ -76,6 +76,19 @@ async function restore($: EngineInterface): Promise<void> {
   if (found && found.length > 0) await update($, links, () => found)
 }
 
+/** Opens the URL in the person's browser: macOS `open`, else `xdg-open`. */
+async function openUrl($: EngineInterface, url: string): Promise<void> {
+  for (const opener of ['open', 'xdg-open']) {
+    try {
+      const ran = await $.process.run([opener, url], { timeoutMs: 10_000 })
+      if (ran.exitCode === 0) return
+    } catch {
+      // the opener is not on this host: try the next
+    }
+  }
+  $.ui.toast(`Could not open ${url}`)
+}
+
 function describe(list: readonly Link[]): string {
   return list.length === 0 ? 'No links set.' : `Links: ${list.map(l => l.label).join(', ')}`
 }
@@ -148,18 +161,21 @@ export const register: Register = on => {
     }
   })
 
+  // A plain Button per link, its label alone: a Link's OSC 8 span becomes
+  // `label URL` on a terminal the engine does not know (Rex), three times the
+  // width. A press opens the URL with the host's opener.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const list = await read($, links)
     if (e.props.hasSurvey || list.length === 0) return next(e)
-    const { Box, Text, Link } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     return (
       <Box flexDirection="row" flexWrap="wrap" justifyContent="flex-end" width={e.props.bodyColumns} paddingX={1}>
         {list.map((link, i) => (
           <Box flexDirection="row">
             {i > 0 ? <Text dimColor> · </Text> : null}
-            <Text color={ACCENT} underline>
-              <Link href={link.url} label={link.label} />
-            </Text>
+            <Button key={`link-${i}`} plain onPress={() => openUrl($, link.url)}>
+              <Text color={ACCENT} underline>{link.label}</Text>
+            </Button>
           </Box>
         ))}
       </Box>

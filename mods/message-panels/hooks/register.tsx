@@ -28,6 +28,10 @@ function summarize(input: unknown): string {
   }
   for (const value of Object.values(record)) {
     if (typeof value === 'string' && value.trim()) return oneLine(value)
+    // A list of labelled items (set_links): its labels.
+    if (Array.isArray(value) && value.length > 0 && value.every(v => v && typeof v === 'object' && typeof (v as { label?: unknown }).label === 'string')) {
+      return value.map(v => oneLine((v as { label: string }).label)).join(', ')
+    }
   }
   return ''
 }
