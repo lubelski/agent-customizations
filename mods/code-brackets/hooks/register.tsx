@@ -1,4 +1,4 @@
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
 
 // After pi-customizations/extensions/code-brackets.ts: a fenced block draws as
 //
@@ -49,27 +49,39 @@ export function splitFences(text: string): Segment[] {
   return segments
 }
 
-type Elements = { Box: any; Text: any; Code: any; Markdown: any }
+type Elements = { Box: any; Text: any; Code: any; Markdown: any; Button: any }
 
-function body({ Box, Text, Code, Markdown }: Elements, segments: Segment[]) {
+/** Copies one block's code, without fences or label, as pi's click on `│` does. */
+async function copyCode($: EngineInterface, source: string, surface: UiPressArgument['surface']) {
+  const copied = await $.ui.copy({ text: source, surface })
+  $.ui.toast(copied.isCopied ? 'Copied' : 'Could not copy code')
+}
+
+function body($: EngineInterface, { Box, Text, Code, Markdown, Button }: Elements, segments: Segment[]) {
+  let blocks = 0
   return (
     <Box flexDirection="column" gap={1}>
-      {segments.map(segment =>
-        segment.kind === 'markdown' ? (
-          <Markdown text={segment.text} />
-        ) : (
+      {segments.map(segment => {
+        if (segment.kind === 'markdown') return <Markdown text={segment.text} />
+        const n = blocks++
+        const copy = (press: UiPressArgument) => copyCode($, segment.source, press.surface)
+        return (
           <Box flexDirection="column">
-            <Text color={RULE}>{segment.language || '┌──'}</Text>
+            <Button key={`label-${n}`} plain onPress={copy}>
+              <Text color={RULE}>{segment.language || '┌──'}</Text>
+            </Button>
             <Box flexDirection="column" paddingLeft={2} overflow="hidden">
               <Code source={segment.source || ' '} language={segment.language || undefined} />
               <Box position="absolute" left={0} top={0} bottom={0} width={1}>
-                <Text color={RULE}>{BAR}</Text>
+                <Button key={`rule-${n}`} plain onPress={copy}>
+                  <Text color={RULE}>{BAR}</Text>
+                </Button>
               </Box>
             </Box>
             <Text color={RULE}>└──</Text>
           </Box>
-        ),
-      )}
+        )
+      })}
     </Box>
   )
 }
@@ -99,7 +111,7 @@ export const register: Register = on => {
     if (e.surface !== 'terminal' || e.props.isSummary) return drawn
     const segments = splitFences(e.props.text)
     if (!segments.some(s => s.kind === 'code')) return drawn
-    const tree = body($.ui.resolve(e), segments)
+    const tree = body($, $.ui.resolve(e), segments)
     // The engine's own row: draw the body, and a panel mod above wraps it.
     if ((drawn as Node).type === 'engine') return tree
     // A panel mod beneath drew the text as Markdown: swap the body in place.
