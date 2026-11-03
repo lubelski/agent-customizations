@@ -1,0 +1,27 @@
+# message-panels
+
+Draws the Claude Code transcript in the style of `pi-customizations`' `assistant-background.ts`, `half-bleed.ts` and `recessed-tools.ts`. Everything here applies to the terminal surface only. Other surfaces draw Claude Code's own rows.
+
+## What it changes
+
+- **Assistant replies** draw as Markdown in a warm gray panel (`#2a2725`). The panel has no `⏺` bullet and no indent column.
+- **Typed prompts** draw in a dark orange-brown panel (`#4a3226`) with warm off-white text (`#efe6df`). Other user-side rows keep Claude Code's drawing: task notifications, and messages from other agents or sessions.
+- **Panel edges.** Each panel's fill is inset one cell on each side. The inset cells hold a `▐` on the left and a `▌` on the right, in the fill color, so the color reaches half a cell past the fill.
+- **Panel padding.** Each panel has one blank row of fill above and below its text.
+- **Summary blocks.** In the normal view, Claude Code condenses text the model wrote between tool calls. Those blocks draw as panels with a dim `summary` tag in the top padding row. Ctrl+o shows the full text.
+- **Tool calls** draw as one dim line each: `› <tool> · <main input>`, such as `› Bash · git status`. MCP tools show their name without the `mcp__<server>__` prefix. A call that errored or was interrupted keeps Claude Code's full row.
+- **Tool output.** A call that succeeded shows no output. Errors show. Ctrl+o shows everything.
+
+## Spacing
+
+Messages keep exactly one blank row between them, never two. Ink has no margin collapse, so the mod builds it from 3 rules:
+
+1. A panel has one blank row above it and none below.
+2. Claude Code's own rows, such as `Worked for 5s` and mod notices, start with a blank row. That gives the gap below a panel.
+3. A tool line has a blank row above it only when the previous visible row is a message. A run of tool calls stays tight.
+
+For rule 3, the mod reads the conversation with `$.session.messages({ as: 'api' })` and finds the block before each call. Thinking blocks are skipped. A user message that carries tool results counts as plumbing, not as a prompt. A call of the reply still streaming is not in that list yet, so the last listed row decides its gap.
+
+## Working with other mods
+
+The assistant panel wraps whatever a mod beneath it drew for `AssistantMessage`. If the tree beneath holds Claude Code's own row, the mod draws Markdown from `e.props.text` instead. This lets `code-brackets` supply the panel's body in either chain order.

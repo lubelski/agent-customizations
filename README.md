@@ -18,7 +18,17 @@ At the prompt of a Claude Code terminal session:
 
 Answer `y` to add the marketplace, then pick a scope. The repository is private, so the machine needs a git credential for github.com (an SSH key, or `gh auth login` then `gh auth setup-git`).
 
+## Update
+
+After a mod's version changes on `main`, run this on each machine, then restart Claude Code:
+
+```sh
+claude plugin marketplace update claude-customizations
+```
+
 ## Develop
+
+See [`AGENTS.md`](AGENTS.md) for the full workflow and the API behavior these mods depend on.
 
 Run a session with a mod loaded from its folder, with edits hot-reloaded:
 
@@ -32,4 +42,4 @@ Check a mod before committing:
 claude plugin validate mods/message-panels
 ```
 
-The engine writes the API types to `mods/<mod>/.claude-plugin/types/` when it loads the mod. Git ignores that folder. Once it exists, `npx tsc -p mods/<mod>` type-checks the mod.
+The engine writes the API types to `mods/<mod>/.claude-plugin/types/` when it loads the mod. Git ignores that folder. Once it exists, `npx -p typescript@5 tsc -p mods/<mod>` type-checks the mod. Run a mod's tests with `claude plugin test mods/<mod>`.
