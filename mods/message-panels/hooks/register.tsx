@@ -115,9 +115,20 @@ async function gapBefore($: EngineInterface, id: string | undefined): Promise<nu
   return !listed && last === 'message' ? 1 : 0
 }
 
-/** A slash command's echo: a user row that is one `/name [args]` line, from no task or peer. */
-function isCommandEcho(props: { text: string; task?: unknown; from?: unknown }): boolean {
-  return !props.task && !props.from && /^\/[a-z][\w:-]*(\s|$)/i.test(props.text.trim()) && !props.text.trim().includes('\n')
+/**
+ * A slash command's echo, as the engine stores it: `<command-name>/model</command-name>`
+ * with `<command-args>`, under an origin it does not always stamp. Returns the
+ * line to draw (`/model args`), or null for any other user row.
+ */
+function commandEcho(props: { text: string; task?: unknown; from?: unknown }): string | null {
+  if (props.task || props.from) return null
+  const text = props.text.trim()
+  const name = /<command-name>([^<]*)<\/command-name>/.exec(text)?.[1]?.trim()
+  if (name) {
+    const args = /<command-args>([^<]*)<\/command-args>/.exec(text)?.[1]?.trim() ?? ''
+    return args ? `${name} ${args}` : name
+  }
+  return /^\/[a-z][\w:-]*(\s|$)/i.test(text) && !text.includes('\n') ? text : null
 }
 
 /** Whether the tree holds the engine's own drawing anywhere. */
@@ -149,10 +160,11 @@ export const register: Register = on => {
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
-    if (isCommandEcho(e.props)) {
+    const echo = commandEcho(e.props)
+    if (echo !== null) {
       return (
         <elements.Box marginTop={1} paddingLeft={1}>
-          <elements.Text dimColor>› {oneLine(e.props.text)}</elements.Text>
+          <elements.Text dimColor>› {oneLine(echo)}</elements.Text>
         </elements.Box>
       )
     }
