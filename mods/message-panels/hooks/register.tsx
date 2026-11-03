@@ -1,3 +1,4 @@
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 // Warm palette near Claude's orange (#d97757), muted for panel fills.
@@ -6,6 +7,28 @@ const ASSISTANT_BG = '#2a2725'
 const USER_BG = '#4a3226'
 const ERROR = '#e07a6a'
 const TAG = '#8a7d74'
+const ADDED = '#9fb87a'
+
+// An expanded tool row (ctrl+o, --verbose, an errored call) shows this much of
+// its input and output before a click reveals the rest.
+const INPUT_PREVIEW = 8
+const OUTPUT_PREVIEW = 12
+
+// A click on a tool row expands it, and the engine paints the row's container
+// in the `userMessageBackgroundHover` theme color, full width. A Box paints
+// its area as a run of spaces in its background color and draws its children
+// over it; the painter styles only `ansi:`, `#hex`, `ansi256()` and `rgb()`
+// strings and leaves any other unstyled. So a full-width Box in this
+// "color" writes plain cells, which take the terminal's own background, over
+// the engine's gray. The engine's bottom padding row is covered by an
+// absolute Box one row below.
+const PLAIN = 'plain'
+
+const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {} as Record<string, boolean>, { shape: 'revealed-1' })
+
+async function toggleRevealed($: EngineInterface, id: string): Promise<void> {
+  await update($, revealed, held => ({ ...held, [id]: !held[id] }))
+}
 
 function oneLine(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
@@ -135,6 +158,94 @@ function commandEcho(props: { text: string; task?: unknown; from?: unknown }): s
   return /^\/[a-z][\w:-]*(\s|$)/i.test(text) && !text.includes('\n') ? text : null
 }
 
+type Line = { text: string; color?: string }
+
+function splitLines(value: string): string[] {
+  return value.replace(/\r\n?/g, '\n').replace(/\n$/, '').replace(/\t/g, '    ').split('\n')
+}
+
+function plain(value: string, color?: string): Line[] {
+  return splitLines(value).map(text => ({ text, color }))
+}
+
+// Edit and Write carry their text in the output's patch, so their input
+// shows the path and the flags alone.
+const SHOWN_IN_OUTPUT = new Set(['old_string', 'new_string', 'content'])
+
+/** The call's input as `key: value` lines; a multi-line value indents under its key. */
+function inputLines(tool: string, input: unknown): string[] {
+  if (typeof input === 'string') return splitLines(input)
+  if (!input || typeof input !== 'object') return []
+  const lines: string[] = []
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (value === undefined || value === null) continue
+    if ((tool === 'Edit' || tool === 'Write') && SHOWN_IN_OUTPUT.has(key)) continue
+    if (typeof value === 'string') {
+      if (value.includes('\n')) lines.push(`${key}:`, ...splitLines(value).map(l => `  ${l}`))
+      else lines.push(`${key}: ${value}`)
+    } else {
+      lines.push(`${key}: ${JSON.stringify(value)}`)
+    }
+  }
+  return lines
+}
+
+type Hunk = { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] }
+
+function patchLines(hunks: Hunk[]): Line[] {
+  const out: Line[] = []
+  for (const hunk of hunks) {
+    out.push({ text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`, color: TAG })
+    for (const line of hunk.lines) {
+      out.push({ text: line, color: line.startsWith('+') ? ADDED : line.startsWith('-') ? ERROR : undefined })
+    }
+  }
+  return out
+}
+
+/**
+ * The call's result as lines: Bash's stdout and stderr, a Read's numbered
+ * content, an Edit's or Write's patch, a plugin tool's text blocks, and JSON
+ * for anything else. An errored call's result is the error text.
+ */
+function outputLines(output: unknown, errored: boolean): Line[] {
+  if (output === undefined || output === null) return []
+  if (typeof output === 'string') return plain(output, errored ? ERROR : undefined)
+  if (Array.isArray(output)) {
+    return output.flatMap(block => {
+      const b = block as { type?: unknown; text?: unknown }
+      if (b && typeof b.text === 'string') return plain(b.text)
+      if (b && b.type === 'image') return [{ text: '[image]' }]
+      return plain(JSON.stringify(block))
+    })
+  }
+  if (typeof output !== 'object') return [{ text: String(output) }]
+  const r = output as Record<string, unknown>
+  if (typeof r.stdout === 'string' || typeof r.stderr === 'string') {
+    const out: Line[] = []
+    if (r.isImage) out.push({ text: '[image]' })
+    else if (typeof r.stdout === 'string' && r.stdout.trim()) out.push(...plain(r.stdout))
+    if (typeof r.stderr === 'string' && r.stderr.trim()) out.push(...plain(r.stderr, ERROR))
+    if (typeof r.backgroundTaskId === 'string') out.push({ text: `running in background · ${r.backgroundTaskId}`, color: TAG })
+    return out
+  }
+  if (Array.isArray(r.structuredPatch) && r.structuredPatch.length > 0) return patchLines(r.structuredPatch as Hunk[])
+  if (r.file && typeof r.file === 'object') {
+    const file = r.file as Record<string, unknown>
+    if (typeof file.content === 'string') {
+      const start = typeof file.startLine === 'number' ? file.startLine : 1
+      const lines = splitLines(file.content)
+      const pad = String(start + lines.length - 1).length
+      return lines.map((text, i) => ({ text: `${String(start + i).padStart(pad)}  ${text}` }))
+    }
+    if (typeof file.base64 === 'string') return [{ text: `[${typeof file.type === 'string' ? file.type : 'binary'}]` }]
+  }
+  if (typeof r.content === 'string') return plain(r.content)
+  if (Array.isArray(r.filenames)) return r.filenames.map(f => ({ text: String(f) }))
+  if (typeof r.message === 'string') return plain(r.message)
+  return plain(JSON.stringify(output, null, 2))
+}
+
 /** Whether the tree holds the engine's own drawing anywhere. */
 function holdsEngine(node: unknown): boolean {
   if (!node || typeof node !== 'object') return false
@@ -187,24 +298,58 @@ export const register: Register = on => {
     )
   })
 
+  // A tool call is one dim line. Expanded (ctrl+o, --verbose) or failed, the
+  // line heads a block indented under it: the input as `key: value` lines, then
+  // the output. Each shows a preview, and one click on the `n more lines`
+  // button reveals the rest; the row's output comes from `p.output`, so the
+  // engine's own ToolResult row is hidden on this surface.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const p = e.props
-    if (e.surface !== 'terminal' || p.isExpanded || p.isErrored || p.isInterrupted) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    if (e.surface !== 'terminal') return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const width = (e.viewport?.columns ?? 100) - 4
+    const gap = await gapBefore($, p.tool_use_id)
+    const failed = p.isErrored || p.isInterrupted
+    const head = (
+      <Text dimColor color={failed ? ERROR : undefined} wrap="truncate-end">
+        {truncate(label(p.tool, p.input), width)}
+        {p.isRunning ? ' …' : ''}
+      </Text>
+    )
+    if (!p.isExpanded && !failed) {
+      return <Box paddingLeft={1} marginTop={gap}>{head}</Box>
+    }
+    const id = p.tool_use_id
+    const open = (await read($, revealed))[id] === true
+    const input = inputLines(p.tool, p.input)
+    const output = outputLines(p.output, failed)
+    const inputShown = open ? input : input.slice(0, INPUT_PREVIEW)
+    const outputShown = open ? output : output.slice(0, OUTPUT_PREVIEW)
+    const hidden = input.length - inputShown.length + output.length - outputShown.length
     return (
-      <Box paddingLeft={1} marginTop={await gapBefore($, p.tool_use_id)}>
-        <Text dimColor wrap="truncate-end">
-          {truncate(label(p.tool, p.input), width)}
-          {p.isRunning ? ' …' : ''}
-        </Text>
+      <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2} marginTop={gap}>
+        {head}
+        <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
+        <Box flexDirection="column" paddingLeft={2}>
+          {inputShown.map(text => (
+            <Text color={TAG} wrap={open ? 'wrap' : 'truncate-end'}>{text}</Text>
+          ))}
+          {outputShown.map(line => (
+            <Text dimColor={!line.color} color={line.color} wrap={open ? 'wrap' : 'truncate-end'}>{line.text}</Text>
+          ))}
+          {hidden > 0 || open ? (
+            <Button key={`reveal-${id}`} plain onPress={() => toggleRevealed($, id)}>
+              <Text color={TAG}>{open ? '▴ less' : `▸ ${hidden} more lines`}</Text>
+            </Button>
+          ) : null}
+        </Box>
       </Box>
     )
   })
 
-  // pi hides successful tool output until expanded; ctrl+o still shows it.
+  // The ToolUse row above draws the output itself, in every view.
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
-    if (e.surface !== 'terminal' || e.props.isExpanded || e.props.isErrored) return next(e)
+    if (e.surface !== 'terminal') return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box display="none" />
   })
