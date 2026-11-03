@@ -5,6 +5,7 @@ Personal mods for [Claude Code](https://claude.com/claude-code), the counterpart
 ## Included mods
 
 - [`message-panels`](mods/message-panels) draws assistant replies and typed prompts as shaded panels with half-block edges, in a warm palette near Claude's orange. Tool calls shrink to one dim line each, such as `› Bash · git status`, and successful tool output stays hidden until ctrl+o. Rows keep one blank row between messages, never two.
+- [`code-brackets`](mods/code-brackets) draws each fenced code block in an assistant reply as its language label, a muted `│` rule beside the highlighted code, and a short `└──` foot. It works alone or inside `message-panels`, in either order.
 
 ## Install
 
@@ -12,6 +13,7 @@ At the prompt of a Claude Code terminal session:
 
 ```
 /plugin install message-panels --marketplace lubelski/claude-customizations
+/plugin install code-brackets --marketplace lubelski/claude-customizations
 ```
 
 Answer `y` to add the marketplace, then pick a scope. The repository is private, so the machine needs a git credential for github.com (an SSH key, or `gh auth login` then `gh auth setup-git`).

@@ -1,11 +1,18 @@
 {
   "name": "claude-customizations",
-  "owner": { "name": "lubelski" },
+  "owner": {
+    "name": "lubelski"
+  },
   "plugins": [
     {
       "name": "message-panels",
       "source": "./mods/message-panels",
       "description": "Shaded assistant and user message panels with half-block edges, and one-line muted tool calls"
+    },
+    {
+      "name": "code-brackets",
+      "source": "./mods/code-brackets",
+      "description": "Code fences in assistant replies drawn with a language label, a muted left rule and a short foot"
     }
   ]
 }
