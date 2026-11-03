@@ -115,6 +115,11 @@ async function gapBefore($: EngineInterface, id: string | undefined): Promise<nu
   return !listed && last === 'message' ? 1 : 0
 }
 
+/** A slash command's echo: a user row that is one `/name [args]` line, from no task or peer. */
+function isCommandEcho(props: { text: string; task?: unknown; from?: unknown }): boolean {
+  return !props.task && !props.from && /^\/[a-z][\w:-]*(\s|$)/i.test(props.text.trim()) && !props.text.trim().includes('\n')
+}
+
 /** Whether the tree holds the engine's own drawing anywhere. */
 function holdsEngine(node: unknown): boolean {
   if (!node || typeof node !== 'object') return false
@@ -138,10 +143,31 @@ export const register: Register = on => {
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
+  // A slash command's echo (`/model`, `/clear`) is a user row too, under an
+  // origin the engine does not always stamp, so it is told by its text and
+  // drawn as one dim line, as a tool call is, with its output beneath.
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
-    if (e.surface !== 'terminal' || e.props.origin.kind !== 'composer') return next(e)
+    if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
+    if (isCommandEcho(e.props)) {
+      return (
+        <elements.Box marginTop={1} paddingLeft={1}>
+          <elements.Text dimColor>› {oneLine(e.props.text)}</elements.Text>
+        </elements.Box>
+      )
+    }
+    if (e.props.origin.kind !== 'composer') return next(e)
     return panel(elements, USER_BG, <elements.Text color="#efe6df">{e.props.text}</elements.Text>)
+  })
+
+  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+    if (e.surface !== 'terminal') return next(e)
+    const { Box, Text, Markdown } = $.ui.resolve(e)
+    return (
+      <Box paddingLeft={3} flexDirection="column">
+        {e.props.isErrored ? <Text color={ERROR}>{e.props.text}</Text> : <Markdown text={e.props.text} dimColor />}
+      </Box>
+    )
   })
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {

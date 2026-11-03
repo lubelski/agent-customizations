@@ -11,6 +11,7 @@ Draws the Claude Code transcript in the style of `pi-customizations`' `assistant
 - **Summary blocks.** In the normal view, Claude Code condenses text the model wrote between tool calls. Those blocks draw as panels with a dim `summary` tag in the top padding row. Ctrl+o shows the full text.
 - **Tool calls** draw as one dim line each: `› <tool> · <main input>`, such as `› Bash · git status`. MCP tools show their name without the `mcp__<server>__` prefix. A call that errored or was interrupted keeps Claude Code's full row.
 - **Tool output.** A call that succeeded shows no output. Errors show. Ctrl+o shows everything.
+- **Slash commands.** A command's echo draws as one dim line, `› /model`, whatever origin the engine stamped it with. The command's output draws dim beneath it, indented, and an error line draws in the error color.
 
 ## Spacing
 
