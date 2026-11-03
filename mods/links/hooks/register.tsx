@@ -121,7 +121,7 @@ export const register: Register = on => {
       return { deny: `set_links: ${(error as Error).message}` }
     }
     await update($, links, () => list)
-    return { result: { message: describe(list), links: list } }
+    return { result: describe(list) }
   }).catch(() => ({ deny: 'set_links: the links mod failed to store the list.' }))
 
   on('command.run', { command: 'links' }, async ($, e) => {

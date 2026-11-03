@@ -31,6 +31,7 @@ These held on Claude Code 2.1.317.
 - **Claude Code's rows paint their own backgrounds.** The user prompt row paints gray behind its text, so wrapping it in a colored `Box` shows two colors. Draw the row from `e.props.text` instead.
 - **`$.session.messages()` lags a streaming reply.** A tool row drawn while its reply streams is not in the list yet. Treat an unlisted call as coming after everything listed.
 - **A function that receives `$` must be a top-level function declaration** in the module, or one imported from the mod's own files. `claude plugin validate` refuses a closure inside `register` that takes `$`.
+- **A plugin tool's `tool.call` result is a string or an array of content blocks.** `{ result: { ... } }` is refused with `does not match its output shape`. Return `{ result: 'text the model reads' }`.
 - **Summary blocks** (`AssistantMessage` with `isSummary: true`) are Claude Code's condensed version of text written between tool calls, not the model's text.
 
 ## Mods that hook the same component
