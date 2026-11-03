@@ -14,6 +14,16 @@ const ADDED = '#9fb87a'
 const INPUT_PREVIEW = 8
 const OUTPUT_PREVIEW = 12
 
+// A click on a tool row expands it, and the engine paints the row's container
+// in the `userMessageBackgroundHover` theme color, full width. A Box paints
+// its area as a run of spaces in its background color and draws its children
+// over it; the painter styles only `ansi:`, `#hex`, `ansi256()` and `rgb()`
+// strings and leaves any other unstyled. So a full-width Box in this
+// "color" writes plain cells, which take the terminal's own background, over
+// the engine's gray. The engine's bottom padding row is covered by an
+// absolute Box one row below.
+const PLAIN = 'plain'
+
 const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {} as Record<string, boolean>, { shape: 'revealed-1' })
 
 async function toggleRevealed($: EngineInterface, id: string): Promise<void> {
@@ -317,8 +327,9 @@ export const register: Register = on => {
     const outputShown = open ? output : output.slice(0, OUTPUT_PREVIEW)
     const hidden = input.length - inputShown.length + output.length - outputShown.length
     return (
-      <Box flexDirection="column" paddingLeft={1} paddingRight={2} marginTop={gap}>
+      <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2} marginTop={gap}>
         {head}
+        <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
         <Box flexDirection="column" paddingLeft={2}>
           {inputShown.map(text => (
             <Text color={TAG} wrap={open ? 'wrap' : 'truncate-end'}>{text}</Text>
