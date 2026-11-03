@@ -7,6 +7,10 @@ Personal mods for [Claude Code](https://claude.com/claude-code), the counterpart
 - [`message-panels`](mods/message-panels) draws assistant replies and typed prompts as shaded panels with half-block edges, in a warm palette near Claude's orange. Tool calls shrink to one dim line each, such as `› Bash · git status`, and successful tool output stays hidden until ctrl+o. Rows keep one blank row between messages, never two.
 - [`code-brackets`](mods/code-brackets) draws each fenced code block in an assistant reply as its language label, a muted `│` rule beside the highlighted code, and a short `└──` foot. Clicking the rule or the label copies that block's code, without fences or label. It works alone or inside `message-panels`, in either order.
 
+## To do
+
+- **Slash command echo.** `message-panels` draws a command's output row in its dim style, but the echo above it (`❯ /model`, with the engine's gray chip) keeps the engine's drawing. The `UserMessage` hook does receive that row, as a `composer` row whose text is `/model`, and returns a dim `› /model` line, yet the engine draws its own. Open question: does the engine refuse a hook's tree for a command echo, or draw the echo outside the hooked site? The debug log (`claude --debug`) should say which.
+
 ## Install
 
 At the prompt of a Claude Code terminal session:
