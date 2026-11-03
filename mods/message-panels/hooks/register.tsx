@@ -70,32 +70,61 @@ function label(tool: string, input: unknown): string {
 const LEFT_EDGE = '▐\n'.repeat(500)
 const RIGHT_EDGE = '▌\n'.repeat(500)
 
+// The panel's caps: half-height rows in the fill's color on the terminal's
+// own background, in place of a full blank padding row. The top cap fills the
+// lower half of its row, the bottom cap the upper half; each corner is the
+// quadrant where a cap meets a side edge. The fill is wider than any panel
+// and wraps; its Box is one row high and clips the rest (Block Elements, so
+// any terminal font has them; pi's sextant caps are one third of a row).
+const TOP_CAP = { left: '▗', fill: '▄'.repeat(500), right: '▖' }
+const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
+
 type Elements = { Box: any; Text: any }
+
+function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fill: string; right: string }) {
+  return (
+    <Box height={1} overflow="hidden">
+      <Text color={color}>{glyphs.left}</Text>
+      <Box flexGrow={1} flexShrink={1} height={1} overflow="hidden">
+        <Text color={color}>{glyphs.fill}</Text>
+      </Box>
+      <Text color={color}>{glyphs.right}</Text>
+    </Box>
+  )
+}
 
 /**
  * pi's half-bleed panel: a fill inset one cell, with half-block ends in the
- * fill's color. Every panel takes one blank row above and none below. The
- * rows after it supply the gap below: Claude Code's own rows start with a
- * blank row, and a tool line does too when it follows a message (gapBefore).
- * So two neighbours never stack two blank rows (margin collapse by hand).
+ * fill's color, capped above and below by a half-height row. Every panel takes
+ * one blank row above and none below. The rows after it supply the gap below:
+ * Claude Code's own rows start with a blank row, and a tool line does too when
+ * it follows a message (gapBefore). So two neighbours never stack two blank
+ * rows (margin collapse by hand).
  */
-function panel({ Box, Text }: Elements, color: string, body: unknown, tag?: string) {
+function panel(elements: Elements, color: string, body: unknown, tag?: string) {
+  const { Box, Text } = elements
+  // The bottom cap sits outside the clipping Box: the edge columns run past
+  // their own Box's bottom, and only the parent's overflow cuts them off.
   return (
-    <Box marginTop={1} flexDirection="column" overflow="hidden">
-      <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
-        {body}
-      </Box>
-      <Box position="absolute" left={0} top={0} bottom={0} width={1}>
-        <Text color={color}>{LEFT_EDGE}</Text>
-      </Box>
-      <Box position="absolute" right={0} top={0} bottom={0} width={1}>
-        <Text color={color}>{RIGHT_EDGE}</Text>
-      </Box>
-      {tag ? (
-        <Box position="absolute" right={3} top={0}>
-          <Text color={TAG}>{tag}</Text>
+    <Box marginTop={1} flexDirection="column">
+      <Box flexDirection="column" overflow="hidden">
+        {cap(elements, color, TOP_CAP)}
+        <Box backgroundColor={color} marginX={1} paddingX={1} flexDirection="column">
+          {body}
         </Box>
-      ) : null}
+        <Box position="absolute" left={0} top={1} bottom={0} width={1}>
+          <Text color={color}>{LEFT_EDGE}</Text>
+        </Box>
+        <Box position="absolute" right={0} top={1} bottom={0} width={1}>
+          <Text color={color}>{RIGHT_EDGE}</Text>
+        </Box>
+        {tag ? (
+          <Box position="absolute" right={3} top={0}>
+            <Text color={TAG}> {tag} </Text>
+          </Box>
+        ) : null}
+      </Box>
+      {cap(elements, color, BOTTOM_CAP)}
     </Box>
   )
 }
