@@ -2,7 +2,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 // Warm palette near Claude's orange (#d97757), muted for panel fills.
 // Assistant: warm gray. User: dark orange-brown. Edges use the same colors.
-const ASSISTANT_BG = '#33302e'
+const ASSISTANT_BG = '#2a2725'
 const USER_BG = '#4a3226'
 const ERROR = '#e07a6a'
 const TAG = '#8a7d74'
