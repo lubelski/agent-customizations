@@ -113,22 +113,14 @@ function holdsEngine(node: unknown): boolean {
 
 export const register: Register = on => {
   // The body is another mod's tree where one beneath drew one (code-brackets),
-  // else Markdown from the text: the engine's row adds the ⏺ bullet and its
-  // indent column. A summary block keeps the engine's row for its `· summary`
-  // mark, and the engine's row may not sit under `overflow`, so it gets the fill
-  // alone, no half-block ends.
+  // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
+  // column and a top margin, and may not sit under `overflow`. A summary block
+  // (text between tool calls, condensed) draws the same way; it loses the
+  // engine's faint `· summary` mark, and ctrl+o still shows the full text.
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
     const drawn = await next(e)
-    if (e.props.isSummary) {
-      const { Box } = elements
-      return (
-        <Box marginTop={1} backgroundColor={ASSISTANT_BG} marginX={1} paddingX={1} paddingY={1}>
-          {drawn}
-        </Box>
-      )
-    }
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
     return panel(elements, ASSISTANT_BG, body)
   })
