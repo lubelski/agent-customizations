@@ -16,15 +16,7 @@ Draws the Claude Code transcript in the style of `pi-customizations`' `assistant
 
 ## Spacing
 
-Messages keep exactly one blank row between them, never two. Ink has no margin collapse, so the mod builds it from 3 rules:
-
-1. A panel has one blank row above it and none below. A panel right after another panel has none: the bottom cap above and its own top cap already leave one row of the terminal's background between the two fills.
-2. Claude Code's own rows, such as `Worked for 5s` and mod notices, start with a blank row. That gives the gap below a panel.
-3. A tool line has a blank row above it only when the previous visible row is a message. A run of tool calls stays tight.
-
-For rule 3, the mod reads the conversation with `$.session.messages({ as: 'api' })` and finds the block before each call. Thinking blocks are skipped. A user message that carries tool results counts as plumbing, not as a prompt. A call of the reply still streaming is not in that list yet, so the last listed row decides its gap.
-
-For rule 1, the mod hooks `session.append`, which every stored row passes before it is kept, and records for each visible row the kind of the visible row before it (a panel, or a line such as a tool row or the turn's duration line), keyed by the row's uuid. A message row renders under that uuid as `e.requestId`, so its hook looks up what came before it. A prompt draws under the id `placeholder` until its row is stored, and takes the last stored row. Rows a `--resume` loads are not appended, so they keep the full blank row.
+The caps are the whole spacing. A panel has no blank row above or below it, and neither has a tool line or a slash command's echo. Two panels in a row leave one row of the terminal's background between their fills, half from each cap. A tool line sits half a row from the fill above or below it. Claude Code's own rows, such as `Worked for 5s` and mod notices, start with a blank row of their own, which the mod does not change.
 
 ## Working with other mods
 

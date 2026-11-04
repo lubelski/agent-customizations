@@ -95,19 +95,17 @@ function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fil
 
 /**
  * pi's half-bleed panel: a fill inset one cell, with half-block ends in the
- * fill's color, capped above and below by a half-height row. A panel takes
- * `gap` blank rows above (gapAbove: none after another panel, whose bottom cap
- * already leaves half a row, else one) and none below. The rows after it
- * supply the gap below: Claude Code's own rows start with a blank row, and a
- * tool line does too when it follows a message (gapBefore). So two neighbours
- * never stack two blank rows (margin collapse by hand).
+ * fill's color, capped above and below by a half-height row. The caps are the
+ * panel's whole spacing: it takes no blank row above or below. Two panels in
+ * a row leave one row of the terminal's background between their fills, and a
+ * tool line or Claude Code's own rows sit half a row from a fill.
  */
-function panel(elements: Elements, color: string, body: unknown, gap: number, tag?: string) {
+function panel(elements: Elements, color: string, body: unknown, tag?: string) {
   const { Box, Text } = elements
   // The bottom cap sits outside the clipping Box: the edge columns run past
   // their own Box's bottom, and only the parent's overflow cuts them off.
   return (
-    <Box marginTop={gap} flexDirection="column">
+    <Box flexDirection="column">
       <Box flexDirection="column" overflow="hidden">
         {cap(elements, color, TOP_CAP)}
         <Box backgroundColor={color} marginX={1} paddingX={1} flexDirection="column">
@@ -128,107 +126,6 @@ function panel(elements: Elements, color: string, body: unknown, gap: number, ta
       {cap(elements, color, BOTTOM_CAP)}
     </Box>
   )
-}
-
-type Block = { type: string; id?: unknown; text?: unknown }
-
-/**
- * The ids of tool calls whose previous visible row is a message (a prompt or
- * assistant text), not another tool call. Thinking draws nothing here and
- * tool results hide under their call, so both are skipped. A user message
- * that carries tool results is the engine's plumbing (its text blocks are
- * reminders), not a prompt row.
- */
-function callsAfterMessages(messages: ReadonlyArray<{ role: string; content: readonly Block[] }>): { after: Set<string>; last: 'message' | 'tool' } {
-  const after = new Set<string>()
-  let previous: 'message' | 'tool' = 'message'
-  for (const message of messages) {
-    const blocks = message.content
-    if (message.role === 'user') {
-      const isPlumbing = blocks.some(b => b.type === 'tool_result')
-      if (!isPlumbing && blocks.some(b => b.type === 'text')) previous = 'message'
-      continue
-    }
-    for (const block of blocks) {
-      if (block.type === 'text' && typeof block.text === 'string' && block.text.trim()) previous = 'message'
-      if (block.type === 'tool_use' && typeof block.id === 'string') {
-        if (previous === 'message') after.add(block.id)
-        previous = 'tool'
-      }
-    }
-  }
-  return { after, last: previous }
-}
-
-/** One blank row above a tool line that follows a message, none after another tool line. */
-async function gapBefore($: EngineInterface, id: string | undefined): Promise<number> {
-  if (!id) return 0
-  const messages = await $.session.messages({ as: 'api' })
-  const { after, last } = callsAfterMessages(messages)
-  if (after.has(id)) return 1
-  // A call of the reply still streaming is not in the list yet: it comes after
-  // everything there, so the last visible row decides.
-  const listed = messages.some(m => m.content.some(b => b.type === 'tool_use' && b.id === id))
-  return !listed && last === 'message' ? 1 : 0
-}
-
-/**
- * What a stored row draws in the transcript: a panel (a prompt, a block of
- * reply text) or a line of anything else (a tool row, a command's echo, a
- * notice such as the turn's duration line).
- */
-type RowKind = 'panel' | 'line'
-
-// The kind of the visible row before each visible row, by the row's uuid,
-// which is the `requestId` a message row renders under; and the kind of the
-// last visible row stored, for a prompt still drawn under `placeholder`
-// before its row is appended. Rows a `--resume` loads are never appended, so
-// they are absent and keep a full blank row.
-const rowBefore = new Map<string, RowKind>()
-let lastRow: RowKind = 'line'
-
-// Doors whose rows draw nothing: the engine's injected context, a tool's
-// result (the ToolUse row above draws it), a queue record.
-const HIDDEN_DOORS = new Set(['attachment', 'hook-context', 'tool-result', 'queue'])
-
-type StoredRow = {
-  door: string
-  uuid: string
-  origin: { kind: string }
-  message: { isMeta?: true; content: ReadonlyArray<{ type: string; text?: unknown }> }
-}
-
-/** The kinds of the visible rows a stored row draws, in order; none for a hidden row. */
-function rowKinds(row: StoredRow): RowKind[] {
-  if (HIDDEN_DOORS.has(row.door) || row.message.isMeta) return []
-  const blocks = row.message.content
-  if (row.door === 'prompt') {
-    const text = blocks.map(b => (typeof b.text === 'string' ? b.text : '')).join('\n')
-    return [row.origin.kind === 'composer' && commandEcho({ text }) === null ? 'panel' : 'line']
-  }
-  if (row.door === 'response') {
-    const kinds: RowKind[] = []
-    for (const block of blocks) {
-      if (block.type === 'text' && typeof block.text === 'string' && block.text.trim()) kinds.push('panel')
-      if (block.type === 'tool_use') kinds.push('line')
-    }
-    return kinds
-  }
-  return ['line']
-}
-
-/** Records a stored row's place among the visible rows. */
-function noteRow(row: StoredRow): void {
-  const last = rowKinds(row).at(-1)
-  if (!last) return
-  rowBefore.set(row.uuid, lastRow)
-  lastRow = last
-}
-
-/** No blank row above a panel that follows another panel, one otherwise. */
-function gapAbove(requestId: string): number {
-  const before = rowBefore.get(requestId) ?? (requestId === 'placeholder' ? lastRow : 'line')
-  return before === 'panel' ? 0 : 1
 }
 
 /**
@@ -344,13 +241,6 @@ function holdsEngine(node: unknown): boolean {
 
 
 export const register: Register = on => {
-  // Every row the conversation keeps passes here before it is stored, so a
-  // message row finds its place in the table by the time it draws.
-  on('session.append', async ($, e, next) => {
-    noteRow(e)
-    return next(e)
-  })
-
   // The body is another mod's tree where one beneath drew one (code-brackets),
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
@@ -362,7 +252,7 @@ export const register: Register = on => {
     const elements = $.ui.resolve(e)
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, ASSISTANT_BG, body, gapAbove(e.requestId), e.props.isSummary ? 'summary' : undefined)
+    return panel(elements, ASSISTANT_BG, body, e.props.isSummary ? 'summary' : undefined)
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
@@ -375,13 +265,13 @@ export const register: Register = on => {
     const echo = commandEcho(e.props)
     if (echo !== null) {
       return (
-        <elements.Box marginTop={1} paddingLeft={1}>
+        <elements.Box paddingLeft={1}>
           <elements.Text dimColor>› {oneLine(echo)}</elements.Text>
         </elements.Box>
       )
     }
     if (e.props.origin.kind !== 'composer') return next(e)
-    return panel(elements, USER_BG, <elements.Text color="#efe6df">{e.props.text}</elements.Text>, gapAbove(e.requestId))
+    return panel(elements, USER_BG, <elements.Text color="#efe6df">{e.props.text}</elements.Text>)
   })
 
   on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
@@ -404,7 +294,6 @@ export const register: Register = on => {
     if (e.surface !== 'terminal') return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = (e.viewport?.columns ?? 100) - 4
-    const gap = await gapBefore($, p.tool_use_id)
     const failed = p.isErrored || p.isInterrupted
     const head = (
       <Text dimColor color={failed ? ERROR : undefined} wrap="truncate-end">
@@ -413,7 +302,7 @@ export const register: Register = on => {
       </Text>
     )
     if (!p.isExpanded && !failed) {
-      return <Box paddingLeft={1} marginTop={gap}>{head}</Box>
+      return <Box paddingLeft={1}>{head}</Box>
     }
     const id = p.tool_use_id
     const open = (await read($, revealed))[id] === true
@@ -423,7 +312,7 @@ export const register: Register = on => {
     const outputShown = open ? output : output.slice(0, OUTPUT_PREVIEW)
     const hidden = input.length - inputShown.length + output.length - outputShown.length
     return (
-      <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2} marginTop={gap}>
+      <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2}>
         {head}
         <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
         <Box flexDirection="column" paddingLeft={2}>
@@ -456,7 +345,7 @@ export const register: Register = on => {
     const { Box, Text } = $.ui.resolve(e)
     const width = (e.viewport?.columns ?? 100) - 4
     return (
-      <Box flexDirection="column" paddingLeft={1} marginTop={await gapBefore($, p.calls[0]?.tool_use_id)}>
+      <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
           <Text dimColor color={call.isErrored ? ERROR : undefined} wrap="truncate-end">
             {truncate(label(call.tool, call.input), width)}
