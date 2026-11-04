@@ -16,7 +16,7 @@ Draws the Claude Code transcript in the style of `pi-customizations`' `assistant
 
 ## Spacing
 
-The caps are the whole spacing. A panel has no blank row above or below it, and neither has a tool line or a slash command's echo. Two panels in a row leave one row of the terminal's background between their fills, half from each cap. A tool line sits half a row from the fill above or below it. Claude Code's own rows, such as `Worked for 5s` and mod notices, start with a blank row of their own, which the mod does not change.
+The caps are the whole spacing. A group of calls with a failed one draws as the mod's own lines, the failed one in the error color. A group the engine summarizes for another reason (recalled memory, hook timing) keeps the engine's line, pulled up over its blank row with a top margin of -1. A panel has no blank row above or below it, and neither has a tool line or a slash command's echo. Two panels in a row leave one row of the terminal's background between their fills, half from each cap. A tool line sits half a row from the fill above or below it. The line that closes a turn, `Worked for 5s · done 5:27 PM`, is drawn by the mod: dim, with a `·` in the column where a tool line has its `›`, so its text aligns with a tool line's, and no blank row above it. The engine's props give the word and the duration. The clock is stamped on the line's first draw and kept for redraws. A line that waits on background agents stays the engine's. Other engine rows, such as mod notices, keep their blank row.
 
 ## Working with other mods
 

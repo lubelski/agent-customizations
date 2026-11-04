@@ -144,6 +144,30 @@ function commandEcho(props: { text: string; task?: unknown; from?: unknown }): s
   return /^\/[a-z][\w:-]*(\s|$)/i.test(text) && !text.includes('\n') ? text : null
 }
 
+/** The turn's duration as the engine's line formats it: `3s`, `1m 4s`, `1h 2m`. */
+function duration(ms: number): string {
+  const total = Math.round(ms / 1000)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${sec}s`
+  return `${sec}s`
+}
+
+// The clock of each turn's closing line, stamped on its first draw so a
+// redraw (a resize) keeps the time the turn ended.
+const doneClocks = new Map<string, string>()
+
+function doneAt(requestId: string): string {
+  let clock = doneClocks.get(requestId)
+  if (!clock) {
+    clock = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    doneClocks.set(requestId, clock)
+  }
+  return clock
+}
+
 type Line = { text: string; color?: string }
 
 function splitLines(value: string): string[] {
@@ -274,6 +298,21 @@ export const register: Register = on => {
     return panel(elements, USER_BG, <elements.Text color="#efe6df">{e.props.text}</elements.Text>)
   })
 
+  // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the
+  // engine's, drawn with a blank row above it and a `✻` glyph. The panel's
+  // bottom cap already leaves half a row, so the mod draws the line itself:
+  // dim, a `·` where a tool line has its `›`, text aligned with it, no blank row. The engine
+  // keeps a line that waits on background agents.
+  on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
+    if (e.surface !== 'terminal' || e.props.waitingFor) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    return (
+      <Box paddingLeft={1}>
+        <Text dimColor>· {e.props.word} for {duration(e.props.durationMs)} · done {doneAt(e.requestId)}</Text>
+      </Box>
+    )
+  })
+
   on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const { Box, Text, Markdown } = $.ui.resolve(e)
@@ -339,15 +378,22 @@ export const register: Register = on => {
     return <Box display="none" />
   })
 
+  // A group of calls draws one line per call. `isCallsOnly` is false when a
+  // call errored or was interrupted, and also when the group holds other rows
+  // (recalled memory, hook timing). A failed call explains the first case, so
+  // the group still draws its own lines, the failed one in the error color.
+  // Otherwise the engine's line stays, pulled up over its blank row.
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const p = e.props
-    if (e.surface !== 'terminal' || p.isExpanded || p.isCallsOnly !== true) return next(e)
+    if (e.surface !== 'terminal' || p.isExpanded) return next(e)
     const { Box, Text } = $.ui.resolve(e)
+    const failed = p.calls.some(call => call.isErrored || call.isInterrupted)
+    if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
     return (
       <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
-          <Text dimColor color={call.isErrored ? ERROR : undefined} wrap="truncate-end">
+          <Text dimColor color={call.isErrored || call.isInterrupted ? ERROR : undefined} wrap="truncate-end">
             {truncate(label(call.tool, call.input), width)}
             {call.isRunning ? ' …' : ''}
           </Text>
