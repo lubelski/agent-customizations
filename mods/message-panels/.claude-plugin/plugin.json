@@ -1,1 +1,1 @@
-{ "name": "message-panels", "version": "0.4.1", "description": "Shaded assistant and user message panels with half-block edges, and one-line muted tool calls", "types": "./types/index.d.ts" }
+{ "name": "message-panels", "version": "0.4.2", "description": "Shaded assistant and user message panels with half-block edges, and one-line muted tool calls", "types": "./types/index.d.ts" }

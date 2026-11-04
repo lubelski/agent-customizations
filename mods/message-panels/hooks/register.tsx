@@ -1,5 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
+import { fitPath, shortenPath } from './paths'
+import type { PathContext } from './paths'
 
 // Warm palette near Claude's orange (#d97757), muted for panel fills.
 // Assistant: warm gray. User: dark orange-brown. Edges use the same colors.
@@ -41,28 +43,44 @@ function truncate(value: string, width: number): string {
 
 const KEYS = ['command', 'file_path', 'path', 'pattern', 'url', 'query', 'description', 'prompt', 'skill']
 
+// Fields that hold a file path, drawn short and cut from the middle.
+const PATH_KEYS = new Set(['file_path', 'path'])
+
+type Detail = { text: string; isPath: boolean }
+
 /** The one input field a person would recognise the call by. */
-function summarize(input: unknown): string {
-  if (!input || typeof input !== 'object') return ''
+function summarize(input: unknown): Detail {
+  if (!input || typeof input !== 'object') return { text: '', isPath: false }
   const record = input as Record<string, unknown>
   for (const key of KEYS) {
     const value = record[key]
-    if (typeof value === 'string' && value.trim()) return oneLine(value)
+    if (typeof value === 'string' && value.trim()) return { text: oneLine(value), isPath: PATH_KEYS.has(key) }
   }
   for (const value of Object.values(record)) {
-    if (typeof value === 'string' && value.trim()) return oneLine(value)
+    if (typeof value === 'string' && value.trim()) return { text: oneLine(value), isPath: false }
     // A list of labelled items (set_links): its labels.
     if (Array.isArray(value) && value.length > 0 && value.every(v => v && typeof v === 'object' && typeof (v as { label?: unknown }).label === 'string')) {
-      return value.map(v => oneLine((v as { label: string }).label)).join(', ')
+      return { text: value.map(v => oneLine((v as { label: string }).label)).join(', '), isPath: false }
     }
   }
-  return ''
+  return { text: '', isPath: false }
 }
 
-function label(tool: string, input: unknown): string {
+/** The call's one line, cut to `width`: a path loses directories from its middle. */
+function label(tool: string, input: unknown, width: number, context: PathContext): string {
   const name = tool.startsWith('mcp__') ? tool.split('__').slice(2).join('__') || tool : tool
+  const head = `› ${name}`
   const detail = summarize(input)
-  return detail ? `› ${name} · ${detail}` : `› ${name}`
+  if (!detail.text) return truncate(head, width)
+  if (!detail.isPath) return truncate(`${head} · ${detail.text}`, width)
+  const room = width - head.length - 3
+  return room < 2 ? truncate(head, width) : `${head} · ${fitPath(shortenPath(detail.text, context), room)}`
+}
+
+/** What a path is shortened against: the session's directory and the home directory. */
+async function pathContext($: EngineInterface): Promise<PathContext> {
+  const [cwd, home] = await Promise.all([$.session.cwd(), $.env.get('HOME')])
+  return { cwd, home }
 }
 
 // A column of half blocks, taller than any panel. The outer Box's overflow
@@ -334,9 +352,10 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = (e.viewport?.columns ?? 100) - 4
     const failed = p.isErrored || p.isInterrupted
+    const context = await pathContext($)
     const head = (
       <Text dimColor color={failed ? ERROR : undefined} wrap="truncate-end">
-        {truncate(label(p.tool, p.input), width)}
+        {label(p.tool, p.input, width, context)}
         {p.isRunning ? ' …' : ''}
       </Text>
     )
@@ -390,11 +409,12 @@ export const register: Register = on => {
     const failed = p.calls.some(call => call.isErrored || call.isInterrupted)
     if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
+    const context = await pathContext($)
     return (
       <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
           <Text dimColor color={call.isErrored || call.isInterrupted ? ERROR : undefined} wrap="truncate-end">
-            {truncate(label(call.tool, call.input), width)}
+            {label(call.tool, call.input, width, context)}
             {call.isRunning ? ' …' : ''}
           </Text>
         ))}
