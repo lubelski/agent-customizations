@@ -33,6 +33,8 @@ These held on Claude Code 2.1.317.
 - **A function that receives `$` must be a top-level function declaration** in the module, or one imported from the mod's own files. `claude plugin validate` refuses a closure inside `register` that takes `$`.
 - **A plugin tool's `tool.call` result is a string or an array of content blocks.** `{ result: { ... } }` is refused with `does not match its output shape`. Return `{ result: 'text the model reads' }`.
 - **Summary blocks** (`AssistantMessage` with `isSummary: true`) are Claude Code's condensed version of text written between tool calls, not the model's text.
+- **A message row's `e.requestId` is the `uuid` of its `session.append` event**, for the prompt and for each block of the reply, and the append runs before the row's first render. A prompt renders first under the id `placeholder`, before its row is appended. Rows a `--resume` loads are never appended.
+- **`isFirstOfReply` is true on every text block of a reply**, including one that follows a tool call, so it does not tell what row came before.
 
 ## Mods that hook the same component
 
