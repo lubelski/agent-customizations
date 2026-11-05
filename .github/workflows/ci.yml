@@ -19,12 +19,16 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: pi
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: pi/package-lock.json
       - uses: actions/setup-python@v7
         with:
           python-version: '3.x'
@@ -34,5 +38,5 @@ jobs:
         if: failure()
         with:
           name: terminal-logs-${{ matrix.os }}
-          path: test-artifacts/
+          path: pi/test-artifacts/
           if-no-files-found: ignore

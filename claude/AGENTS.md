@@ -1,6 +1,8 @@
 # Agent notes
 
-This repository holds Claude Code mods: plugins with a hooks module that hook Claude Code's engine and redraw its UI. Each mod lives in `mods/<mod>/`. `.claude-plugin/marketplace.json` lists every mod, so each one installs with `/plugin install <mod> --marketplace lubelski/claude-customizations`. `README.md` is for people, and each mod's own `README.md` describes what it draws.
+These notes apply to `claude/`. Run development commands from this directory; the marketplace lives one level above it. Do not update existing installations without explicit approval.
+
+This repository holds Claude Code mods: plugins with a hooks module that hook Claude Code's engine and redraw its UI. Each mod lives in `mods/<mod>/`. `../.claude-plugin/marketplace.json` lists every mod, so each one installs with `/plugin install <mod> --marketplace lubelski/agent-customizations`. `README.md` is for people, and each mod's own `README.md` describes what it draws.
 
 ## Layout of a mod
 
@@ -18,8 +20,8 @@ The API reference is the types file the engine writes, `mods/<mod>/.claude-plugi
 2. Check the mod: `claude plugin validate mods/<mod>`. The `README_MISSING`, `LICENSE_MISSING` and `ICON_MISSING` lines are plugin-directory checks. They do not block loading.
 3. Type-check it: `npx -p typescript@5 tsc -p mods/<mod>`. This needs the types folder from step 1.
 4. Run its tests, where it has some: `claude plugin test mods/<mod>`.
-5. Bump `version` in the mod's `plugin.json` for any change meant to reach installed copies. Machines pick it up with `claude plugin marketplace update claude-customizations` and a restart.
-6. Add a new mod to `.claude-plugin/marketplace.json` and to the list in `README.md`.
+5. Bump `version` in the mod's `plugin.json` for any change meant to reach installed copies. Machines pick it up with `claude plugin marketplace update agent-customizations` and a restart.
+6. Add a new mod to `../.claude-plugin/marketplace.json` and to the list in `README.md`.
 
 ## API behavior learned the hard way
 

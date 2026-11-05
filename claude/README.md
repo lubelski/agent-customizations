@@ -1,6 +1,6 @@
 # Claude customizations
 
-Personal mods for [Claude Code](https://claude.com/claude-code), the counterpart of [`pi-customizations`](https://github.com/lubelski/pi-customizations) for Pi. Each mod is a Claude Code plugin with a hooks module, in its own folder under `mods/`. The repository root is a plugin marketplace, so each mod installs with one command.
+Personal mods for [Claude Code](https://claude.com/claude-code), alongside the [Pi customizations](../pi/README.md) in this repository. Each mod is a Claude Code plugin with a hooks module, in its own folder under `mods/`. The repository root is a plugin marketplace, so each mod installs with one command.
 
 ## Included mods
 
@@ -12,14 +12,16 @@ Personal mods for [Claude Code](https://claude.com/claude-code), the counterpart
 
 - **Slash command echo.** `message-panels` draws a command's output row in its dim style, but the echo above it (`❯ /model`, with the engine's gray chip) keeps the engine's drawing. The `UserMessage` hook does receive that row, as a `composer` row whose text is `/model`, and returns a dim `› /model` line, yet the engine draws its own. Open question: does the engine refuse a hook's tree for a command echo, or draw the echo outside the hooked site? The debug log (`claude --debug`) should say which.
 
-## Install
+## Install (future migration only)
+
+Existing installations have not been migrated. Run these commands only when explicitly switching to this repository.
 
 At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install message-panels --marketplace lubelski/claude-customizations
-/plugin install code-brackets --marketplace lubelski/claude-customizations
-/plugin install links --marketplace lubelski/claude-customizations
+/plugin install message-panels --marketplace lubelski/agent-customizations
+/plugin install code-brackets --marketplace lubelski/agent-customizations
+/plugin install links --marketplace lubelski/agent-customizations
 ```
 
 Answer `y` to add the marketplace, then pick a scope. The repository is private, so the machine needs a git credential for github.com (an SSH key, or `gh auth login` then `gh auth setup-git`).
@@ -29,10 +31,12 @@ Answer `y` to add the marketplace, then pick a scope. The repository is private,
 After a mod's version changes on `main`, run this on each machine, then restart Claude Code:
 
 ```sh
-claude plugin marketplace update claude-customizations
+claude plugin marketplace update agent-customizations
 ```
 
 ## Develop
+
+Run the commands below from the `claude/` directory.
 
 See [`AGENTS.md`](AGENTS.md) for the full workflow and the API behavior these mods depend on.
 

@@ -6,10 +6,10 @@ Run `npm ci --ignore-scripts` in this checkout first (the codemode summary uses 
 
 ```sh
 mkdir -p "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib"
-for extension in "$HOME/dev/pi-customizations/extensions/"*.ts; do
+for extension in "$HOME/dev/agent-customizations/pi/extensions/"*.ts; do
   ln -sf "$extension" "$HOME/.pi/agent/extensions/$(basename "$extension")"
 done
-for helper in "$HOME/dev/pi-customizations/lib/"*.ts; do
+for helper in "$HOME/dev/agent-customizations/pi/lib/"*.ts; do
   ln -sf "$helper" "$HOME/.pi/agent/lib/$(basename "$helper")"
 done
 ```

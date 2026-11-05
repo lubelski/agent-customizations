@@ -7,7 +7,7 @@ Link the theme into Pi's user theme directory:
 ```sh
 mkdir -p "$HOME/.pi/agent/themes"
 ln -sfn \
-  "$HOME/dev/pi-customizations/themes/turquoise.json" \
+  "$HOME/dev/agent-customizations/pi/themes/turquoise.json" \
   "$HOME/.pi/agent/themes/turquoise.json"
 ```
 
