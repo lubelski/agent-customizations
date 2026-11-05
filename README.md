@@ -11,6 +11,10 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 
 [Shared skills](skills/README.md) contains the canonical Balsamiq MCP skill (installed as a user-level file copy) and documents the pinned `avoid-ai-writing` trial for user-level Pi and Claude Code. The previous `deslop` deployment is preserved under [archive/](archive/README.md) for rollback. This explicitly authorized skill deployment is separate from the runtime migration below.
 
+## Terminal shortcuts
+
+[Claude model launchers](claude/bin/README.md) provide `opus` and `fable` commands, each starting Claude Code with medium thinking effort. They are installed separately from the plugins and do not change global Claude settings.
+
 ## Migration status
 
 This is a private consolidation repository. Existing installations still use the original repositories; creating this repo does not deploy or migrate them. Installation commands in the project documentation are for a future, explicit migration only. Do not run them as part of repository setup.
