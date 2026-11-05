@@ -1,0 +1,1 @@
+{ "name": "links", "version": "0.1.0", "description": "A row of clickable task links above the prompt, kept by the model with a set_links tool", "types": "./types/index.d.ts" }
