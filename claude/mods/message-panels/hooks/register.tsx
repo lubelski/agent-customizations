@@ -118,7 +118,7 @@ function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fil
  * a row leave one row of the terminal's background between their fills, and a
  * tool line or Claude Code's own rows sit half a row from a fill.
  */
-function panel(elements: Elements, color: string, body: unknown, tag?: string) {
+function panel(elements: Elements, color: string, body: unknown) {
   const { Box, Text } = elements
   // The bottom cap sits outside the clipping Box: the edge columns run past
   // their own Box's bottom, and only the parent's overflow cuts them off.
@@ -135,11 +135,6 @@ function panel(elements: Elements, color: string, body: unknown, tag?: string) {
         <Box position="absolute" right={0} top={1} bottom={0} width={1}>
           <Text color={color}>{RIGHT_EDGE}</Text>
         </Box>
-        {tag ? (
-          <Box position="absolute" right={3} top={0}>
-            <Text color={TAG}> {tag} </Text>
-          </Box>
-        ) : null}
       </Box>
       {cap(elements, color, BOTTOM_CAP)}
     </Box>
@@ -286,15 +281,21 @@ export const register: Register = on => {
   // The body is another mod's tree where one beneath drew one (code-brackets),
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
-  // (text between tool calls, condensed) draws the same way; it loses the
-  // engine's faint `· summary` mark, so it carries a `summary` tag of its own in
-// the top padding row; ctrl+o still shows the full text.
+  // (text between tool calls, condensed) draws as one italic line with no
+  // fill, its text aligned with a tool line's; ctrl+o still shows the full text.
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
+    if (e.props.isSummary) {
+      return (
+        <elements.Box paddingLeft={3}>
+          <elements.Text italic>{oneLine(e.props.text)}</elements.Text>
+        </elements.Box>
+      )
+    }
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, ASSISTANT_BG, body, e.props.isSummary ? 'summary' : undefined)
+    return panel(elements, ASSISTANT_BG, body)
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
