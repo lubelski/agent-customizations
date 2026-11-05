@@ -7,6 +7,10 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 - **[Claude Code](claude/README.md):** message panels, code brackets, and task links. Mods live in `claude/mods/`; the root `.claude-plugin/marketplace.json` is the plugin marketplace.
 - **[Pi](pi/README.md):** transcript styling, compact tools, session naming, footer and input layout extensions, and the turquoise theme. The Node package and tests live in `pi/`.
 
+## Terminal shortcuts
+
+[Claude model launchers](claude/bin/README.md) provide `opus` and `fable` commands, each starting Claude Code with medium thinking effort. They are installed separately from the plugins and do not change global Claude settings.
+
 ## Migration status
 
 This is a private consolidation repository. Existing installations still use the original repositories; creating this repo does not deploy or migrate them. Installation commands in the project documentation are for a future, explicit migration only. Do not run them as part of repository setup.
