@@ -1,11 +1,15 @@
 # Model launchers
 
-`opus` and `fable` start interactive Claude Code sessions with the corresponding model alias and medium thinking effort (`--effort medium`). They use the `claude` executable on PATH and forward all arguments unchanged. Permissions and other Claude settings are left alone.
+`opus` and `fable` start interactive Claude Code sessions with the corresponding model alias. An optional first argument selects thinking effort: `low`, `medium`, `high`, `xhigh`, or `max`. The default is `medium`.
+
+They use the `claude` executable on PATH and forward the remaining arguments unchanged. A first argument that is not an effort level is passed through too. Permissions and other Claude settings are left alone. Supported effort levels may vary by model; Claude handles model-specific validation.
 
 ```sh
 opus
 fable
-opus --continue
+opus high --continue
+fable low "Explain this repository"
+opus max
 fable "Explain this repository"
 ```
 
