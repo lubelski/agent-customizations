@@ -15,6 +15,8 @@ The original repositories remain unchanged. Their main-branch histories (includi
 
 ## Development
 
+Each project keeps its own dependencies and test commands; there is no root-level npm package.
+
 Run Claude commands from `claude/` (see [agent notes](claude/AGENTS.md)). Run Pi checks with Node 24+ and Python 3:
 
 ```sh
