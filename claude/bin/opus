@@ -1,2 +1,9 @@
 #!/bin/sh
-exec claude --model opus --effort medium "$@"
+effort=medium
+case "${1-}" in
+  low|medium|high|xhigh|max)
+    effort=$1
+    shift
+    ;;
+esac
+exec claude --model opus --effort "$effort" "$@"

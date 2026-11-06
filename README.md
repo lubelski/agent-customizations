@@ -13,7 +13,7 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 
 ## Terminal shortcuts
 
-[Claude model launchers](claude/bin/README.md) provide `opus` and `fable` commands, each starting Claude Code with medium thinking effort. They are installed separately from the plugins and do not change global Claude settings.
+[Claude model launchers](claude/bin/README.md) provide `opus` and `fable` commands, each starting Claude Code with medium thinking effort by default and accepting an optional first argument such as `opus high` or `fable low`. They are installed separately from the plugins and do not change global Claude settings.
 
 ## Migration status
 
