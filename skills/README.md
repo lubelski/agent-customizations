@@ -1,6 +1,6 @@
 # Shared writing skills
 
-`avoid-ai-writing/` is the active trial replacement for `deslop`. Both Pi and Claude Code use the same user-level snapshot. No MCP server, npm installation, hooks, or plugin is needed.
+[avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) is the active trial replacement for `deslop`. Its code is installed from upstream, not vendored in this repository. Both Pi and Claude Code use the same user-level snapshot. No MCP server, npm installation, hooks, or plugin is needed.
 
 ## Source
 
@@ -8,22 +8,43 @@
 - Commit: `30971f1c50c6412a0c414e8c7b15032a32b21939`
 - Skill version: `3.38.0`
 - Source directory: `plugins/avoid-ai-writing/skills/avoid-ai-writing/`
-- Contents copied unchanged, with upstream root `LICENSE` added.
+- Install the bundle unchanged, with upstream root `LICENSE` added.
 
 Keep the complete directory: `SKILL.md` requires `references/patterns.md`; scripts, detector, and examples support optional verification. Review upstream changes before replacing this snapshot. Do not clone the whole upstream repository into a recursively scanned skill directory.
 
 ## User-level installation
 
-From this repository's root, copy the skill into a versioned directory outside the checkout, then link both harnesses to that snapshot:
+For a fresh installation, fetch the pinned official repository into a temporary checkout, then copy only its skill bundle into a stable user-level snapshot. Run this in Bash; it refuses to overwrite an existing installation (including dangling links).
 
-```sh
-release="$HOME/.local/share/agent-customizations/skills/avoid-ai-writing-30971f1"
-mkdir -p "$(dirname "$release")" "$HOME/.agents/skills" "$HOME/.claude/skills"
-# Stop and compare if the release or either destination already exists.
-cp -R skills/avoid-ai-writing "$release"
-ln -s "$release" "$HOME/.agents/skills/avoid-ai-writing"
-ln -s ../../.agents/skills/avoid-ai-writing "$HOME/.claude/skills/avoid-ai-writing"
+```bash
+(
+set -eu
+commit=30971f1c50c6412a0c414e8c7b15032a32b21939
+release="$HOME/.local/share/agent-customizations/skills/avoid-ai-writing-${commit:0:7}"
+shared="$HOME/.agents/skills/avoid-ai-writing"
+claude="$HOME/.claude/skills/avoid-ai-writing"
+for path in "$release" "$shared" "$claude"; do
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    printf 'Already exists; inspect before changing: %s\n' "$path" >&2
+    exit 1
+  fi
+done
+source_dir=$(mktemp -d)
+trap 'rm -rf "$source_dir"' EXIT
+git -C "$source_dir" init -q
+git -C "$source_dir" remote add origin https://github.com/conorbronsdon/avoid-ai-writing.git
+git -C "$source_dir" fetch --depth 1 origin "$commit"
+git -C "$source_dir" checkout --detach FETCH_HEAD
+test "$(git -C "$source_dir" rev-parse HEAD)" = "$commit"
+mkdir -p "$(dirname "$release")" "$(dirname "$shared")" "$(dirname "$claude")"
+cp -R "$source_dir/plugins/avoid-ai-writing/skills/avoid-ai-writing" "$release"
+cp "$source_dir/LICENSE" "$release/LICENSE"
+ln -s "$release" "$shared"
+ln -s ../../.agents/skills/avoid-ai-writing "$claude"
+)
 ```
+
+The current trial already uses this snapshot layout; no reinstall is needed. To update, review a new upstream commit, change the pin above, and stage a new snapshot before switching the two user-level links. Keep the previous snapshot for rollback. Do not track a floating branch or automatically pull changes into an active deployment.
 
 Pi 1.5 discovers `~/.agents/skills` directly. Claude Code uses its symlink. Do not expose the repository root or `archive/` as a skill discovery path.
 
