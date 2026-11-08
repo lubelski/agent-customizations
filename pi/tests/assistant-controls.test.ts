@@ -3,7 +3,7 @@ import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
 test("plain-text toggles existing and future assistant messages without controls", async () => {
- const { default: extension } = await jiti.import("../extensions/assistant-background.ts");
+ const { default: extension } = await jiti.import("../lib/ui/messages/assistant.ts");
  const { AssistantMessageComponent } = await jiti.import("@earendil-works/pi-coding-agent");
  themeModule.initTheme("dark");
  const commands = new Map();

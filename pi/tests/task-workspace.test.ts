@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 
-const { default: install } = await jiti.import("../extensions/stable-input-layout.ts");
+const { default: install } = await jiti.import("../lib/ui/footer.ts");
 
 test("task workspace updates all location rows, persists, refreshes, and resets safely", async () => {
 	const temp = realpathSync(mkdtempSync(join(tmpdir(), "task-workspace-")));

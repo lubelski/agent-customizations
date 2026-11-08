@@ -3,8 +3,8 @@ import test from "node:test";
 import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 
 test("completed tools are one row, with native details and accurate mouse expansion", async () => {
-	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../extensions/recessed-tools.ts");
-	const { default: halfBleed } = await jiti.import("../extensions/half-bleed.ts");
+	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../lib/ui/tools.ts");
+	const { default: halfBleed } = await jiti.import("../lib/ui/messages/panels.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 	const { stripTerminalSequences, visibleWidth, Text } = tuiModule;
 	themeModule.initTheme("dark");

@@ -2,27 +2,56 @@
 
 ## Installation
 
-Run `npm ci --ignore-scripts` in this checkout first (the codemode summary uses the pinned Acorn parser dependencies). Keep the checkout and its dependencies available, then link each extension into Pi's user extension directory:
+The package now exposes **two extensions**: `ui.ts` and the independent `session-rename.ts`. Its explicit `package.json` manifest excludes all deprecated entry points and includes the turquoise theme. The package name remains `pi-customizations`.
+
+After approving a migration, install from the `pi/` package directory:
 
 ```sh
-mkdir -p "$HOME/.pi/agent/extensions" "$HOME/.pi/agent/lib"
-for extension in "$HOME/dev/agent-customizations/pi/extensions/"*.ts; do
-  ln -sf "$extension" "$HOME/.pi/agent/extensions/$(basename "$extension")"
-done
-for helper in "$HOME/dev/agent-customizations/pi/lib/"*.ts; do
-  ln -sf "$helper" "$HOME/.pi/agent/lib/$(basename "$helper")"
-done
+cd "$HOME/dev/agent-customizations/pi"
+npm ci --ignore-scripts
+pi install "$PWD"
 ```
 
-After updating this checkout, rerun both link loops before running `/reload` inside Pi. New helpers need their own links: Pi resolves relative imports from the installed extension path, not the symlink target. A missing helper can prevent startup (for example, `assistant-background.ts` requires `lib/message-controls.ts`).
+Keep the checkout and dependencies available. Package installation resolves the internal modules directly; do not wildcard-link `extensions/*.ts` or install the modules under `lib/ui/` as extensions.
 
-## `assistant-background.ts`
+### Migrating an existing installation
 
-Gives assistant prose an adaptive neutral-gray panel while leaving thinking text unboxed. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
+1. Remove the six old visual extension paths/symlinks from your active extension configuration: `assistant-background`, `code-brackets`, `half-bleed`, `recessed-tools`, `session-title-banner`, and `stable-input-layout`. Also remove any standalone `session-rename` registration if the package will now supply it.
+2. Select the package above (or explicitly select only `extensions/ui.ts` and `extensions/session-rename.ts`). When using explicit file paths, keep them in the checkout; avoid symlinks that break relative module imports.
+3. **Exit and restart Pi.** `/reload` is not sufficient when switching between legacy and unified implementations because prototype patches survive runtime reloads.
+
+The old paths remain guarded deprecation shims. Their implementations are frozen, byte-for-byte, in `../legacy/`; those files are not installable entry points. If legacy and unified entry points are selected together, the first family loaded owns the process and the other is skipped with a warning, before registering tools, commands, or patches. Duplicate entry points are skipped too. Restart with only the intended family selected. Rollback uses the six legacy shims, without `ui.ts`, and a fresh process.
+
+The migration commands above are manual steps. Repository tests use isolated configuration and do not change installed settings, symlinks, or package registrations.
+
+## `ui.ts`: unified presentation
+
+One entry point coordinates internal modules under `lib/ui/`:
+
+- `header.ts`: fixed title and optional top rule.
+- `footer.ts`: footer, editor/autocomplete layout, inventory, task links and workspace tools.
+- `messages/`: assistant/thinking styling and user/custom message panels under one owner.
+- `code.ts`: code-block styling and copying.
+- `tools.ts`: compact tool summaries and disclosure.
+- `settings.ts`: shared persistent preferences, read on session start and updated by commands.
+
+Existing appearance and commands are preserved. Message caps still use the existing sextant glyphs; compatible message layout, compact footer, and `/ui-mobile`, `/ui-desktop`, `/ui-compact` presets are follow-up work, not implemented options yet.
+
+Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). The first preference is:
+
+```json
+{ "header": { "showTopBar": false } }
+```
+
+Settings are shared across projects and clients using that agent directory, not tied to a conversation or connecting device. Commands update the current instance and future sessions; other running processes are not live-synchronized. No file is created until a preference is saved. Writes are atomic and preserve unrelated keys. Invalid settings warn and fall back to defaults; failed saves leave the display unchanged. Malformed JSON is never overwritten. The exploratory `session-title-banner.json` format was never deployed and is not read or migrated.
+
+## Message appearance: `lib/ui/messages/`
+
+Gives assistant prose and thinking text matching adaptive neutral-gray panels. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
 
 Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
 
-## `code-brackets.ts`
+## Code blocks: `lib/ui/code.ts`
 
 Replaces Markdown's visible code fences with a muted, open-left bracket while preserving native syntax highlighting:
 
@@ -39,7 +68,7 @@ In fullscreen mode, click any vertical `│` cell to copy the entire block’s o
 
 Pi has no public fence-layout setting, so this uses a guarded, reload-safe token-renderer patch. Unsupported token layouts fall back to Pi's rendering.
 
-## `half-bleed.ts`
+## Message panel edges: `lib/ui/messages/panels.ts`
 
 Shapes transcript panels without changing their terminal-cell layout:
 
@@ -57,7 +86,7 @@ The side edges use standard Unicode Block Elements. The caps and corners require
 
 Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes its software cursor itself; the terminal controls the native cursor shape. The former `native-cursor.ts` extension is retired. Remove its installed symlink and any explicit settings entry when upgrading.
 
-## `recessed-tools.ts`
+## Tool disclosure: `lib/ui/tools.ts`
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
@@ -95,7 +124,20 @@ This extension is adapted from [`@moguw/pi-session-rename`](https://github.com/M
 pi remove npm:@moguw/pi-session-rename
 ```
 
-## `stable-input-layout.ts`
+## Header: `lib/ui/header.ts`
+
+Shows the session title, directory, and context usage in a fixed fullscreen header. The top rule is optional; hiding it reduces the header from three rows to two without removing the title or bottom rule.
+
+```text
+/header-bar            Toggle the top rule and save
+/header-bar toggle     Toggle the top rule and save
+/header-bar off        Hide the top rule and save
+/header-bar on         Show the top rule and save (default)
+```
+
+The command updates `header.showTopBar` in the shared `ui.json` preferences above. It requires an active supported fullscreen layout. The title and bottom rule remain visible in both modes.
+
+## Footer/editor: `lib/ui/footer.ts`
 
 Keeps a seven-row collapsed pane below the editor so the input and transcript remain anchored:
 

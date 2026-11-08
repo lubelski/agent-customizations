@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
-const { default: extension } = await jiti.import("../extensions/assistant-background.ts");
+const { default: extension } = await jiti.import("../lib/ui/messages/assistant.ts");
 const { AssistantMessageComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 const commands = new Map();
 const events = new Map();

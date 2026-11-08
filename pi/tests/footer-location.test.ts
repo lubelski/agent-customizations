@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { jiti } from "./pi-runtime.ts";
 
-const { linkedWorktree, primaryCheckout } = await jiti.import("../extensions/stable-input-layout.ts");
+const { linkedWorktree, primaryCheckout } = await jiti.import("../lib/ui/footer.ts");
 
 test("footer distinguishes linked worktrees from main checkouts and non-repositories", () => {
 	const temp = realpathSync(mkdtempSync(join(tmpdir(), "footer-location-")));

@@ -3,7 +3,7 @@ import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
 test("divider clicks copy original blocks across wrapping, nesting, caching, resize and reload", async () => {
- const { default: extension } = await jiti.import("../extensions/code-brackets.ts");
+ const { default: extension } = await jiti.import("../lib/ui/code.ts");
  const { installCodeCopy } = await jiti.import("../lib/code-copy.ts");
  const { attachMessageRendering } = await jiti.import("../lib/message-controls.ts");
  const { getMarkdownTheme } = await jiti.import("@earendil-works/pi-coding-agent");
