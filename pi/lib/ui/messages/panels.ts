@@ -17,6 +17,10 @@ import {
 	trimToolRulePadding,
 } from "../../transcript-layout.ts";
 
+import type { MessageLayout } from "../settings.ts";
+
+let getLayout: () => MessageLayout = () => "compatible";
+
 const TOOL_BACKGROUNDS = new Set([
 	"toolPendingBg",
 	"toolSuccessBg",
@@ -48,6 +52,7 @@ type PatchableTheme = Theme & {
 };
 
 type Renderable = {
+	invalidate?(): void;
 	render(width: number): string[];
 };
 
@@ -59,11 +64,17 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 		Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true });
 	}
 
+	const layouts = new WeakMap<Renderable, MessageLayout>();
 	target.render = function (this: Renderable, width: number): string[] {
+		const layout = getLayout();
+		if (layouts.get(this) !== layout) {
+			this.invalidate?.();
+			layouts.set(this, layout);
+		}
 		const lines = original.call(this, width);
 		return ComponentClass === ToolExecutionComponent
 			? trimToolRulePadding(lines, stripTerminalSequences)
-			: shapePanelCaps(lines, stripTerminalSequences, visibleWidth);
+			: layout === "unicode" ? shapePanelCaps(lines, stripTerminalSequences, visibleWidth) : lines;
 	};
 }
 
@@ -90,6 +101,8 @@ function patchPanelBackgrounds(): void {
 			const edge = foregroundAnsi(edgeColor, this.getColorMode());
 			return `\x1b[49m${edge}│\x1b[39m${text.slice(1)}`;
 		}
+
+		if (getLayout() === "compatible") return original.call(this, color, text);
 
 		const background = this.getBgAnsi(color);
 		if (background === "\x1b[49m") return original.call(this, color, text);
@@ -126,7 +139,8 @@ function restoreRemovedExperiments(): void {
 	}
 }
 
-export default function (_pi: ExtensionAPI): void {
+export default function (_pi: ExtensionAPI, layout: () => MessageLayout = () => "compatible"): void {
+	getLayout = layout;
 	restoreRemovedExperiments();
 	patchPanelBackgrounds();
 	for (const ComponentClass of PANEL_COMPONENTS) patchPanelComponent(ComponentClass);

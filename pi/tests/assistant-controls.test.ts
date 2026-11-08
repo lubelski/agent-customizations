@@ -8,7 +8,7 @@ test("plain-text toggles existing and future assistant messages without controls
  themeModule.initTheme("dark");
  const commands = new Map();
  const events = new Map();
- extension({ on(name, handler) { events.set(name, handler); }, registerCommand(name, value) { commands.set(name, value); } });
+ extension({ on(name, handler) { events.set(name, handler); }, registerCommand(name, value) { commands.set(name, value); } }, () => "unicode");
  const ctx = { mode: "tui", ui: { theme: themeModule.theme, setStatus() {}, notify() {} } };
  events.get("session_start")({}, ctx);
  const create = () => new AssistantMessageComponent({ content: [{ type: "text", text: "First **paragraph**\n\nSecond paragraph\n\n```js\n  x();\n```" }], stopReason: "length" });

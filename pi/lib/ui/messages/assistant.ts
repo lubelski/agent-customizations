@@ -19,6 +19,7 @@ import {
 } from "../../transcript-layout.ts";
 
 import { attachMessageRendering, codeBlocks, type MessageControlState } from "../../message-controls.ts";
+import type { MessageLayout } from "../settings.ts";
 
 const controls = new WeakSet<object>();
 const state: MessageControlState = { plain: false };
@@ -31,6 +32,8 @@ const ORIGINAL_UPDATE = Symbol.for("will.pi.assistant-background.original-update
 const WRAPPED_UPDATE = Symbol.for("will.pi.assistant-background.wrapped-update");
 
 let activeTheme: Theme | undefined;
+let getLayout: () => MessageLayout = () => "compatible";
+const APPLIED_LAYOUT = Symbol.for("will.pi.ui.assistant-layout");
 
 type DefaultTextStyle = {
 	bgColor?: (text: string) => string;
@@ -43,6 +46,7 @@ type MarkdownInternals = {
 	defaultTextStyle?: DefaultTextStyle;
 	paddingY: number;
 	[APPLIED_STYLE]?: (text: string) => string;
+	[APPLIED_LAYOUT]?: MessageLayout;
 };
 
 type AssistantInternals = {
@@ -67,7 +71,7 @@ function assistantBackground(text: string, panelEdges = true): string {
 	const mode = activeTheme.getColorMode();
 	const background = backgroundAnsi(color, mode);
 
-	if (!panelEdges || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
+	if (getLayout() === "compatible" || !panelEdges || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
 		return `${background}${text}\x1b[49m`;
 	}
 
@@ -110,7 +114,9 @@ function styleTextBlocks(component: AssistantInternals): void {
 			controls.add(child);
 		}
 		const markdown = child as unknown as MarkdownInternals;
-		if (markdown[APPLIED_STYLE] === assistantBackground && markdown.paddingY === 1) continue;
+		const layout = getLayout();
+		if (markdown[APPLIED_STYLE] === assistantBackground && markdown.paddingY === 1 && markdown[APPLIED_LAYOUT] === layout) continue;
+		markdown[APPLIED_LAYOUT] = layout;
 		markdown.defaultTextStyle = {
 			...markdown.defaultTextStyle,
 			bgColor: assistantBackground,
@@ -161,7 +167,8 @@ function patchAssistantRendering(): void {
 	target.render = wrapper;
 }
 
-export default function (pi: ExtensionAPI): void {
+export default function (pi: ExtensionAPI, layout: () => MessageLayout = () => "compatible"): void {
+	getLayout = layout;
 	patchAssistantRendering();
 	pi.registerCommand("plain-text", {
 		description: "Toggle original Markdown for all assistant messages",

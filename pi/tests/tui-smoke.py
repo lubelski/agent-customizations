@@ -90,6 +90,22 @@ def smoke(mode, theme, presentation="ui"):
             start = len(output)
             os.write(master, b"/inventory\r")
             expect("/inventory to expand", start)
+            if presentation == "ui":
+                for command, message in (
+                    (b"/ui-mobile\r", "UI mobile (saved)."),
+                    (b"/ui-messages unicode\r", "Message layout unicode (saved)."),
+                    (b"/ui-compact\r", "UI compact (saved)."),
+                ):
+                    start = len(output)
+                    os.write(master, command)
+                    expect(message, start)
+                assert json.loads((agent / "ui.json").read_text())["messages"]["layout"] == "unicode"
+                start = len(output)
+                os.write(master, b"/ui-mobile\r")
+                expect("UI mobile (saved).", start)
+                assert json.loads((agent / "ui.json").read_text()) == {
+                    "header": {"showTopBar": False}, "footer": {"compact": True}, "messages": {"layout": "compatible"},
+                }
             if presentation == "ui" and mode == "fullscreen":
                 start = len(output)
                 os.write(master, b"/header-bar off\r")
@@ -100,6 +116,10 @@ def smoke(mode, theme, presentation="ui"):
                 os.write(master, b"/reload\r")
                 expect("Reloaded keybindings", start)
                 expect("/inventory to expand", start)
+                if presentation == "ui":
+                    saved = json.loads((agent / "ui.json").read_text())
+                    assert saved["footer"]["compact"] is True
+                    assert saved["messages"]["layout"] == "compatible"
                 if presentation == "ui" and mode == "fullscreen":
                     # Toggle proves /reload read the persisted false value (it must become true).
                     start = len(output)
@@ -109,6 +129,16 @@ def smoke(mode, theme, presentation="ui"):
                     start = len(output)
                     os.write(master, b"/header-bar off\r")
                     expect("Header top bar off (saved).", start)
+            if presentation == "ui":
+                for command, message in (
+                    (b"/ui-desktop\r", "UI desktop (saved)."),
+                    (b"/ui-footer compact\r", "Footer compact (saved)."),
+                    (b"/ui-footer full\r", "Footer full (saved)."),
+                    (b"/ui-mobile\r", "UI mobile (saved)."),
+                ):
+                    start = len(output)
+                    os.write(master, command)
+                    expect(message, start)
             # Trigger autocomplete and render at narrow and wide sizes.
             start = len(output)
             os.write(master, b"/ren")
@@ -116,8 +146,8 @@ def smoke(mode, theme, presentation="ui"):
             os.write(master, b"\x1b")
             time.sleep(0.15)
             os.write(master, b"\x15")  # Clear unfinished input without submitting it.
-            for columns in (40, 160):
-                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 32, columns, 0, 0))
+            for rows, columns in ((16, 24), (24, 40), (32, 160)):
+                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
                 os.kill(process.pid, signal.SIGWINCH)
                 until = time.monotonic() + 0.3
                 while time.monotonic() < until:

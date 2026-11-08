@@ -32,9 +32,12 @@ import {
 	type FooterLink,
 } from "../footer-links.ts";
 import { mcpServerNamesFromTools } from "../mcp-footer.ts";
+import type { UiSettingsStore } from "./settings.ts";
+import { truncateMiddle } from "./header.ts";
 
-const LOWER_PANE_HEIGHT = 7;
-const AUTOCOMPLETE_MAX_VISIBLE = LOWER_PANE_HEIGHT - 1;
+const paneHeight = (compact: boolean) => compact ? 3 : 7;
+// Pi's native editor supports at least three suggestions (+ one overflow row).
+const autocompleteLimit = (compact: boolean) => compact ? 3 : 6;
 const MCP_STATUS_EVENT = "pi-mcp-adapter/status/v1";
 const CUSTOMIZATION_STATUS_PREFIX = "pi-customization:";
 
@@ -65,6 +68,7 @@ type QueueShortcuts = {
 };
 
 type LowerPaneState = {
+	compact: boolean;
 	autocompleteOpen: boolean;
 	inventoryExpanded: boolean;
 	shortcuts: QueueShortcuts;
@@ -318,6 +322,24 @@ function createFooter(
 					.flatMap((line) => width > 0 ? wrapTextWithAnsi(theme.fg("dim", line), width) : [""])
 				: [];
 
+			if (state.compact) {
+				const path = sanitize(formatCwd(workspace?.path ?? activeWorktree ?? ctx.sessionManager.getCwd()));
+				const branchLabel = truncateToWidth(`B: ${branch ? sanitize(branch) : "-"}`, Math.max(0, Math.floor(width / 2)), "…");
+				const pathWidth = Math.max(0, width - visibleWidth(branchLabel) - 3);
+				const location = `${branchLabel} · ${truncateMiddle(path, pathWidth)}`;
+				const progress = ctx.hasPendingMessages() ? "queued" : ctx.isIdle() ? "idle" : "working";
+				const percent = context?.percent == null ? "?" : `${context.percent.toFixed(1)}%`;
+				const modelLabel = model ? sanitize(model.id) : "no model";
+				const links = footerLinksValue(theme, getFooterLinks());
+				return [
+					truncateToWidth(theme.fg("dim", location), width, "…"),
+					truncateToWidth(theme.fg("dim", `C: ${percent} · ${progress} · M: ${modelLabel}`), width, "…"),
+					truncateToWidth(links || theme.fg("dim", summary), width, "…"),
+					...(state.inventoryExpanded && links ? [truncateToWidth(theme.fg("dim", summary), width, "…")] : []),
+					...inventoryRows,
+				];
+			}
+
 			const columns = footerColumns(width);
 			const queueRows = columnRows(queueGuidance(theme, ctx, state.shortcuts), columns.right, 3);
 			const wrappedLinks = columnRows(footerLinksValue(theme, getFooterLinks()), columns.right, 3)
@@ -343,11 +365,13 @@ function createFooter(
  * the editor is idle; autocomplete replaces that information instead of
  * pushing the editor and transcript upward.
  */
-export default function (pi: ExtensionAPI): void {
+export default function (pi: ExtensionAPI, settings?: UiSettingsStore): void {
 	let latestMcpStatus: McpStatusSnapshot | undefined;
 	let footerLinks: FooterLink[] = [];
 	let activeTui: TUI | undefined;
 	let activeState: LowerPaneState | undefined;
+	let unsubscribeSettings: (() => void) | undefined;
+	let updateAutocomplete: (() => void) | undefined;
 	const toggleInventory = () => {
 		if (!activeState) return;
 		activeState.inventoryExpanded = !activeState.inventoryExpanded;
@@ -419,17 +443,35 @@ export default function (pi: ExtensionAPI): void {
 		activeTui?.requestRender();
 	});
 
+	pi.on("session_shutdown", () => {
+		unsubscribeSettings?.();
+		unsubscribeSettings = undefined;
+		updateAutocomplete = undefined;
+		activeTui = undefined;
+		activeState = undefined;
+	});
+
 	pi.on("session_start", (_event, ctx) => {
 		footerLinks = footerLinksFromBranch(ctx.sessionManager.getBranch());
 		workspace = restoreWorkspace(ctx.sessionManager.getBranch());
 		if (ctx.mode !== "tui") return;
 
+		unsubscribeSettings?.();
+		updateAutocomplete = undefined;
 		const state: LowerPaneState = {
+			compact: settings?.current.footer.compact ?? false,
 			autocompleteOpen: false,
 			inventoryExpanded: false,
 			shortcuts: { submit: "↵", followUp: "⌥↵", dequeue: "⌥↑" },
 		};
 		activeState = state;
+		unsubscribeSettings = settings?.subscribe(() => {
+			state.compact = settings.current.footer.compact;
+			updateAutocomplete?.();
+			// Repaint cached transcript panels when the message layout changes too.
+			activeTui?.invalidate?.();
+			activeTui?.requestRender();
+		});
 		const previousFactory = ctx.ui.getEditorComponent();
 
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
@@ -443,13 +485,11 @@ export default function (pi: ExtensionAPI): void {
 				? previousFactory(tui, theme, keybindings)
 				: new CustomEditor(tui, theme, keybindings)) as unknown as AutocompleteEditor;
 
-			// InteractiveMode copies its configured value into custom editors after
-			// this factory returns. Keep this experiment's collapsed shared pane at seven rows.
+			// Pi copies its configured limit after this factory. Own the limit in both modes.
 			const setAutocompleteMaxVisible = editor.setAutocompleteMaxVisible?.bind(editor);
-			if (setAutocompleteMaxVisible) {
-				editor.setAutocompleteMaxVisible = () => setAutocompleteMaxVisible(AUTOCOMPLETE_MAX_VISIBLE);
-				setAutocompleteMaxVisible(AUTOCOMPLETE_MAX_VISIBLE);
-			}
+			updateAutocomplete = () => setAutocompleteMaxVisible?.(autocompleteLimit(state.compact));
+			if (setAutocompleteMaxVisible) editor.setAutocompleteMaxVisible = updateAutocomplete;
+			updateAutocomplete();
 
 			const render = editor.render.bind(editor);
 			editor.render = (width: number): string[] => {
@@ -467,7 +507,7 @@ export default function (pi: ExtensionAPI): void {
 				if (!autocompleteOpen) return lines;
 
 				const actualHeight = editor.renderedAutocompleteHeight ?? 0;
-				const missingRows = Math.max(0, LOWER_PANE_HEIGHT - actualHeight);
+				const missingRows = Math.max(0, paneHeight(state.compact) - actualHeight);
 				return missingRows === 0 ? lines : lines.concat(Array<string>(missingRows).fill(""));
 			};
 

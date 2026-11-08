@@ -35,19 +35,41 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing appearance and commands are preserved. Message caps still use the existing sextant glyphs; compatible message layout, compact footer, and `/ui-mobile`, `/ui-desktop`, `/ui-compact` presets are follow-up work, not implemented options yet.
+Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout with full-row space padding and no special block/sextant glyphs. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
-Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). The first preference is:
+### Presets and individual controls
+
+| Command | Header | Footer | Message panels |
+|---|---|---|---|
+| `/ui-mobile` | Two rows, no top rule | Three rows | Compatible |
+| `/ui-desktop` | Three rows | Seven rows | Compatible |
+| `/ui-compact` | Two rows, no top rule | Three rows | Leave unchanged |
+
+Presets apply immediately and save concrete preferences in one atomic update. They are explicit selections, not toggles or automatic terminal detection. Individual controls can override any part afterward:
+
+```text
+/header-bar [on|off|toggle]
+/ui-footer [compact|full|toggle]
+/ui-messages compatible|unicode
+```
+
+`/header-bar` and `/ui-footer` without arguments toggle their setting. `/ui-messages` without arguments reports the current message layout. Use `/ui-messages unicode` to opt into the original fractional caps and side edges. `/ui-desktop` deliberately selects compatible panels rather than assuming desktop font support. Commands require interactive mode; header rendering applies only in supported fullscreen layouts.
+
+Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). For example, `/ui-mobile` saves:
 
 ```json
-{ "header": { "showTopBar": false } }
+{
+  "header": { "showTopBar": false },
+  "footer": { "compact": true },
+  "messages": { "layout": "compatible" }
+}
 ```
 
 Settings are shared across projects and clients using that agent directory, not tied to a conversation or connecting device. Commands update the current instance and future sessions; other running processes are not live-synchronized. No file is created until a preference is saved. Writes are atomic and preserve unrelated keys. Invalid settings warn and fall back to defaults; failed saves leave the display unchanged. Malformed JSON is never overwritten. The exploratory `session-title-banner.json` format was never deployed and is not read or migrated.
 
 ## Message appearance: `lib/ui/messages/`
 
-Gives assistant prose and thinking text matching adaptive neutral-gray panels. Dark and light themes receive different grays to preserve contrast. The panel uses the same half-cell sides and partial-height caps as the user-message treatment. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
+Gives assistant prose and thinking text matching adaptive neutral-gray panels. Dark and light themes receive different grays to preserve contrast. Compatible mode uses ordinary rectangular backgrounds and full-row space padding. Unicode mode uses the same half-cell sides and partial-height caps as the user-message treatment. Switching modes updates existing/cached messages as well as new and streaming messages, without changing stored messages or signatures. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
 
 Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
 
@@ -70,7 +92,7 @@ Pi has no public fence-layout setting, so this uses a guarded, reload-safe token
 
 ## Message panel edges: `lib/ui/messages/panels.ts`
 
-Shapes transcript panels without changing their terminal-cell layout:
+In Unicode mode, shapes transcript panels without changing their terminal-cell layout:
 
 - user and custom messages retain their filled backgrounds with half-cell side edges;
 - their top and bottom caps occupy one third of a row;
@@ -80,7 +102,7 @@ Shapes transcript panels without changing their terminal-cell layout:
 - Pi's standalone pre-tool separator is removed to tighten the transition from assistant prose;
 - tool errors use an error-colored left rule.
 
-The side edges use standard Unicode Block Elements. The caps and corners require support for the Symbols for Legacy Computing sextants.
+The Unicode side edges use Block Elements. Its caps and corners require Symbols for Legacy Computing sextants. Compatible mode avoids both, retaining ordinary filled backgrounds and space padding for user/custom/assistant/thinking panels. Tool rules and disclosure remain the same in both modes. `/plain-text` is still a separate session-local view, not a font-compatibility setting.
 
 ## Native cursor (built into Pi 1.2)
 
@@ -139,7 +161,21 @@ The command updates `header.showTopBar` in the shared `ui.json` preferences abov
 
 ## Footer/editor: `lib/ui/footer.ts`
 
-Keeps a seven-row collapsed pane below the editor so the input and transcript remain anchored:
+### Compact footer
+
+`/ui-footer compact` (also selected by `/ui-mobile` and `/ui-compact`) reduces the collapsed footer from seven rows to **three**:
+
+1. Branch and active workspace/worktree path, middle-truncated to fit.
+2. Context percentage, idle/working/queued state, and model ID.
+3. Clickable task links, or the inventory summary when there are no links.
+
+Links truncate rather than adding rows. `/inventory` and Alt+I still expand the full MCP/extension list; when links occupy the third row, the expanded inventory adds its summary below them. Usage totals, separate primary-checkout/worktree fields, model provider/thinking level, and queue-key reminders remain available in the full footer (`/ui-footer full`). Narrow layouts prioritize branch, context, and run state over long paths/model names.
+
+Autocomplete uses three suggestions in compact mode. Pi requires at least three suggestions, so a long list adds its native overflow indicator as a fourth row—temporarily one row taller than the compact footer. Full mode retains six suggestions plus the indicator. Short menus are padded to the selected footer height. Switching density updates both the footer and the editor immediately.
+
+### Full footer
+
+The default full footer keeps a seven-row collapsed pane below the editor:
 
 - while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
 - the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;

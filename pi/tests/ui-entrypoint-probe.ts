@@ -71,7 +71,7 @@ for (let reload = 0; reload < 3; reload++) {
 	assert.deepEqual([...r.tools.keys()].sort(), ["set_footer_links", "set_task_workspace"]);
 	assert.deepEqual([...r.commands.keys()].sort(), (mode === "legacy-first"
 		? ["copy-code", "inventory", "plain-text", "tool-detail"]
-		: ["copy-code", "header-bar", "inventory", "plain-text", "tool-detail"]).sort());
+		: ["copy-code", "header-bar", "inventory", "plain-text", "tool-detail", "ui-compact", "ui-mobile", "ui-desktop", "ui-footer", "ui-messages"]).sort());
 	await r.emit("session_shutdown");
 }
 console.log(JSON.stringify({ mode, transcript }));

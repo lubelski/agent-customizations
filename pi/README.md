@@ -15,9 +15,22 @@ Pi’s strength is that it’s designed to be uniquely yours. Like any of these 
 - [`ui.ts`](extensions/ui.ts) — unified presentation: header, footer/editor, message panels, code blocks/copying, and tool summaries/disclosure. Internal modules live under [`lib/ui/`](lib/ui/); persistent preferences belong to `ui.json` in Pi's agent directory. `/header-bar [on|off|toggle]` saves whether the header's top rule is visible.
 - [`session-rename.ts`](extensions/session-rename.ts) — independently names sessions with concise, scannable topics; retains its own `rename.json` settings.
 
-The package manifest loads only these two entry points. The six former visual entry points are deprecated compatibility shims; their frozen implementations live under [`legacy/`](legacy/). Switching from legacy to unified presentation requires a fresh Pi process, not `/reload`. Mobile/compact presets and compatible message layout are planned follow-ups; default styling is unchanged.
+The package manifest loads only these two entry points. The six former visual entry points are deprecated compatibility shims; their frozen implementations live under [`legacy/`](legacy/). Switching from legacy to unified presentation requires a fresh Pi process, not `/reload`. `/ui-mobile` selects a compact header/footer and font-compatible message panels; `/ui-desktop` restores the full header/footer with compatible panels; `/ui-compact` changes density without changing message style. Compatible panels are the default; `/ui-messages unicode` opts into the original fractional panel edges. See the command and setting details below.
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
+
+## Mobile and compact modes
+
+```text
+/ui-mobile                    Compact header + three-row footer + compatible panels
+/ui-desktop                   Full header/footer + compatible panels
+/ui-compact                   Compact header/footer; keep current message style
+/ui-footer [compact|full|toggle]
+/ui-messages compatible|unicode
+/header-bar [on|off|toggle]
+```
+
+Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_CODING_AGENT_DIR`). The compact header/footer reclaim **five rows** together. Compatible message panels use spaces and rectangular backgrounds instead of unsupported block/sextant glyphs; they are not an ASCII-only mode for the entire UI. Settings are shared by clients using the same Pi agent directory. Presets save individual values, so subsequent overrides persist too.
 
 ## Thinking text
 
@@ -50,7 +63,7 @@ Checks run in three layers:
 
 - `npm run typecheck` checks every extension against the pinned Pi API, including editor vs. full UI theme types (Pi 1.2.0).
 - `npm test` runs helper tests and real Pi component rendering: custom editor rendering, themes, widths, autocomplete, cursor preservation, footer, and header lifecycle. Runtime tests are mandatory, not silently skipped.
-- `npm run test:tui` launches the **bundled CLI** in isolated pseudo-terminals using the package manifest. It checks startup, two reloads, header preference persistence, autocomplete, resize, clean exit, and crash logs in fullscreen/regular modes with turquoise/dark/light themes. It also smoke-tests the deprecated entry points in fullscreen/regular dark mode. It uses a temporary HOME/config/cwd, disables MCP and automatic networking, and makes no model calls. Failure output is saved in `test-artifacts/`.
+- `npm run test:tui` launches the **bundled CLI** in isolated pseudo-terminals using the package manifest. It checks startup, two reloads, preset/header preference persistence, autocomplete, mobile-size resize, clean exit, and crash logs in fullscreen/regular modes with turquoise/dark/light themes. It also smoke-tests the deprecated entry points in fullscreen/regular dark mode. It uses a temporary HOME/config/cwd, disables MCP and automatic networking, and makes no model calls. Failure output is saved in `test-artifacts/`.
 
 GitHub Actions runs the same checks on Linux and macOS. Pi dependencies are pinned in `package-lock.json`; upgrade them deliberately and rerun the full suite. To probe another installed Pi runtime, set `PI_PACKAGE_ROOT=/absolute/path/to/@earendil-works/pi-coding-agent` for `npm test` and `npm run test:tui` (typechecking still uses local dependencies).
 

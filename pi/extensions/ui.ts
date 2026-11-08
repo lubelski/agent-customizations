@@ -7,6 +7,7 @@ import installCode from "../lib/ui/code.ts";
 import installTools from "../lib/ui/tools.ts";
 import installHeader from "../lib/ui/header.ts";
 import installFooter from "../lib/ui/footer.ts";
+import installUiCommands from "../lib/ui/commands.ts";
 
 /** The only active presentation entry point. Renderer modules are not extensions. */
 export default function ui(pi: ExtensionAPI): void {
@@ -19,9 +20,10 @@ export default function ui(pi: ExtensionAPI): void {
 			if (ctx.hasUI) ctx.ui.notify(`Could not load ${settings.path}; using UI defaults: ${error}`, "warning");
 		}
 	});
-	installMessages(pi);
+	installUiCommands(pi, settings);
+	installMessages(pi, settings);
 	installCode(pi);
 	installTools(pi);
 	installHeader(pi, settings);
-	installFooter(pi);
+	installFooter(pi, settings);
 }

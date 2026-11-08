@@ -9,7 +9,7 @@ test("UI preferences default safely, preserve unrelated keys, and reject malform
 	const dir = mkdtempSync(join(tmpdir(), "ui-config-"));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const path = join(dir, "nested", "ui.json");
-	assert.deepEqual(loadUiSettings(path), { header: { showTopBar: true } });
+	assert.deepEqual(loadUiSettings(path), { header: { showTopBar: true }, footer: { compact: false }, messages: { layout: "compatible" } });
 	assert.equal(existsSync(path), false);
 	saveHeaderTopBar(path, false);
 	assert.equal(loadUiSettings(path).header.showTopBar, false);
