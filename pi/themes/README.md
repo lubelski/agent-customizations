@@ -19,7 +19,7 @@ A dark theme based on Pi's built-in dark palette. It keeps blue user-message pan
 
 The custom extensions compose with the theme as follows:
 
-- assistant prose uses its own adaptive neutral-gray panel;
+- assistant prose and thinking text share the same adaptive neutral-gray panel;
 - user messages use the theme's blue `userMessageBg`;
 - tool rules mix the theme's `toolPendingBg` and `borderMuted`;
 - footer run state uses the theme's teal `accent`;

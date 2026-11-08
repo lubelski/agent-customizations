@@ -12,7 +12,7 @@ Pi’s strength is that it’s designed to be uniquely yours. Like any of these 
 
 ## Included extensions
 
-- [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose a shaped neutral-gray panel
+- [`assistant-background.ts`](extensions/assistant-background.ts) — gives assistant prose and thinking text the same shaped neutral-gray panel
 - [`code-brackets.ts`](extensions/code-brackets.ts) — replaces code fences with plain language labels and muted Unicode bracket rules
 - [`half-bleed.ts`](extensions/half-bleed.ts) — reshapes message panels and reduces tools to a thin left rule
 - [`recessed-tools.ts`](extensions/recessed-tools.ts) — makes tool activity more compact and subdued
@@ -21,6 +21,12 @@ Pi’s strength is that it’s designed to be uniquely yours. Like any of these 
 - [`stable-input-layout.ts`](extensions/stable-input-layout.ts) — shares a fixed lower pane between session info and autocomplete
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
+
+## Thinking text
+
+Thinking content is shown inline using the same neutral-gray panels, normal text color, and Markdown typography as regular assistant prose. It streams in place, rather than appearing as an italic `Thinking...` disclosure. While this extension is loaded, Pi’s hide-thinking setting and click-to-collapse behavior do not hide these panels; no installed settings are rewritten. Explicit Markdown emphasis still renders normally.
+
+This is display-only: thinking blocks, signatures, and their `assistant-thinking` Markdown-transformer identity remain intact. Stored sessions and model context are unchanged. `/plain-text` and code-copy behavior apply to thinking panels too.
 
 ## Copy-friendly assistant messages
 
