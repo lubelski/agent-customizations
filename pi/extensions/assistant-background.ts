@@ -8,6 +8,7 @@ import {
 	backgroundAnsi,
 	foregroundAnsi,
 	Markdown,
+	MouseRegion,
 	rgbColor,
 } from "@earendil-works/pi-tui";
 import {
@@ -26,6 +27,8 @@ let latestSource = "";
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.assistant-background.wrapped-render");
 const APPLIED_STYLE = Symbol.for("will.pi.assistant-background.applied-style");
+const ORIGINAL_UPDATE = Symbol.for("will.pi.assistant-background.original-update");
+const WRAPPED_UPDATE = Symbol.for("will.pi.assistant-background.wrapped-update");
 
 let activeTheme: Theme | undefined;
 
@@ -43,6 +46,9 @@ type MarkdownInternals = {
 };
 
 type AssistantInternals = {
+	hideThinkingBlock: boolean;
+	thinkingVisibilityOverrides: Map<number, boolean>;
+	updateContent(message: unknown, isStreaming?: boolean): void;
 	contentContainer?: { children?: unknown[] };
 	lastMessage?: {
 		content?: Array<{ type: string; text?: string; thinking?: string }>;
@@ -79,10 +85,22 @@ function messageLayout(component: AssistantInternals): ThinkingLayout {
 }
 
 function styleTextBlocks(component: AssistantInternals): void {
-	for (const child of component.contentContainer?.children ?? []) {
-		// Assistant prose is a direct Markdown child. Thinking is deliberately
-		// wrapped in a MouseRegion, giving us a narrow runtime seam even though Pi
-		// does not expose a public assistant-message renderer API.
+	const children = component.contentContainer?.children ?? [];
+	for (let index = 0; index < children.length; index++) {
+		let child = children[index];
+		// Pi wraps thinking Markdown in a click-to-collapse region. Treat its text
+		// like ordinary prose, including selection/copy behavior, not a disclosure.
+		// Keep the actual thinking content and its Markdown transformer identity.
+		const wrapped = child instanceof MouseRegion
+			? (child as unknown as { child?: unknown }).child : undefined;
+		if (wrapped instanceof Markdown) {
+			child = wrapped;
+			const markdown = child as unknown as MarkdownInternals;
+			const { color: _color, italic: _italic, ...style } = markdown.defaultTextStyle ?? {};
+			markdown.defaultTextStyle = style;
+			children[index] = child;
+			markdown.invalidate();
+		}
 		if (!(child instanceof Markdown)) continue;
 
 		latestSource = (child as unknown as { text: string }).text;
@@ -105,6 +123,28 @@ function styleTextBlocks(component: AssistantInternals): void {
 
 function patchAssistantRendering(): void {
 	const target = AssistantMessageComponent.prototype as unknown as AssistantInternals & Record<PropertyKey, unknown>;
+	// There is no public normal-assistant renderer API. Use the existing narrow
+	// prototype seam; never rewrite messages, signatures, sessions, or settings.
+	const installedUpdate = target[WRAPPED_UPDATE] as AssistantInternals["updateContent"] | undefined;
+	const savedUpdate = target[ORIGINAL_UPDATE] as AssistantInternals["updateContent"] | undefined;
+	const update = installedUpdate && target.updateContent === installedUpdate && savedUpdate
+		? savedUpdate : target.updateContent;
+	const updateWrapper: AssistantInternals["updateContent"] = function (this: AssistantInternals, message, isStreaming) {
+		const hidden = this.hideThinkingBlock;
+		const overrides = this.thinkingVisibilityOverrides;
+		this.hideThinkingBlock = false;
+		this.thinkingVisibilityOverrides = new Map();
+		try {
+			update.call(this, message, isStreaming);
+		} finally {
+			this.hideThinkingBlock = hidden;
+			this.thinkingVisibilityOverrides = overrides;
+		}
+	};
+	Object.defineProperty(target, ORIGINAL_UPDATE, { value: update, configurable: true, writable: true });
+	Object.defineProperty(target, WRAPPED_UPDATE, { value: updateWrapper, configurable: true, writable: true });
+	target.updateContent = updateWrapper;
+
 	const installedWrapper = target[WRAPPED_RENDER] as AssistantInternals["render"] | undefined;
 	const savedOriginal = target[ORIGINAL_RENDER] as AssistantInternals["render"] | undefined;
 	const original = installedWrapper && target.render === installedWrapper && savedOriginal
