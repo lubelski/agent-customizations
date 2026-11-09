@@ -86,6 +86,7 @@ Shapes transcript panels:
 
 - user, custom and assistant panels sit one gap column in from each side, with one column of padding inside, so sides are whole cells;
 - by default their top and bottom padding rows become square caps one third of a row tall;
+- four cells of each user or assistant panel's top edge, ending one cell short of its end, are a copy target: they draw as the edge at rest, read `COPY` under the pointer, and a click copies that panel's text as written (Markdown, no panel glyphs). Each panel copies only its own text; thinking has no copy target, and `/plain-text` mode turns it off. Hover needs Pi's fullscreen mode outside tmux/screen, where pointer motion is reported;
 - with those caps, a panel drops the blank gap row next to anything it abuts (another panel, thinking text or a tool row), since its cap already separates them; gaps between rows without caps stay;
 - tool panels lose their filled background and right edge, leaving one thin, very low-contrast left rule;
 - the tool rule starts and ends with rendered tool content rather than extending through box padding;

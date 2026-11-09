@@ -23,6 +23,7 @@ import {
 
 import { attachMessageRendering, codeBlocks, type MessageControlState } from "../../message-controls.ts";
 import { THINKING_MARK } from "./gaps.ts";
+import { copyMouse, decorateCopy, setCopyNotifier } from "./copy.ts";
 import type { MessageLayout } from "../settings.ts";
 
 const controls = new WeakSet<object>();
@@ -134,8 +135,13 @@ function attachControls(markdown: Markdown): void {
 	attachMessageRendering(markdown as unknown as Parameters<typeof attachMessageRendering>[0], state, plainDivider);
 	// Cap here, not only at the message level, so gaps inside the message can collapse.
 	const render = markdown.render.bind(markdown);
-	markdown.render = width => getLayout() === "unicode" && !state.plain
-		? capPanelRows(render(width), stripTerminalSequences, visibleWidth) : render(width);
+	markdown.render = width => {
+		if (state.plain) return render(width);
+		const lines = getLayout() === "unicode" ? capPanelRows(render(width), stripTerminalSequences, visibleWidth) : render(width);
+		return decorateCopy(lines, markdown);
+	};
+	const source = markdown as unknown as { text: string; handleMouse?: unknown };
+	source.handleMouse = (event: Parameters<typeof copyMouse>[2]) => state.plain ? undefined : copyMouse(markdown, () => source.text, event);
 	controls.add(markdown);
 }
 
@@ -249,5 +255,6 @@ export default function (pi: ExtensionAPI, layout: () => MessageLayout = () => "
 		state.plain = false;
 		latestSource = "";
 		activeTheme = ctx.ui.theme;
+		setCopyNotifier((message, type) => ctx.ui.notify(message, type));
 	});
 }
