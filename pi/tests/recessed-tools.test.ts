@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 
-test("completed tools are three rows, with native details and accurate mouse expansion", async () => {
+test("completed tools are one row, with native details and accurate mouse expansion", async () => {
 	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../lib/ui/tools.ts");
 	const { default: halfBleed } = await jiti.import("../lib/ui/messages/panels.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
@@ -27,23 +27,23 @@ test("completed tools are three rows, with native details and accurate mouse exp
 			tool.updateResult(result, false);
 			for (const width of [1, 4, 20, 80]) {
 				const lines = tool.render(width);
-				assert.equal(lines.length, 3, "summary plus two preview rows");
+				assert.equal(lines.length, 1, "completed summary only");
 				assert.ok(lines.every(line => visibleWidth(line) <= width));
 			}
 			assert.equal(stripTerminalSequences(tool.render(80)[0]), "› read · /日本語/long-file.ts");
 			assert.equal(tool.handleMouse({ type: "scroll", y: 0 }), undefined);
-			assert.equal(stripTerminalSequences(tool.render(80)[2]), "  └ line three");
+			assert.equal(tool.render(80).length, 1);
 			assert.equal(tool.handleMouse({ type: "click", button: "left", y: 3 }), undefined);
 			assert.deepEqual(tool.handleMouse({ type: "click", button: "left", y: 0 }), { handled: true });
 			assert.ok(tool.render(80).length > 1);
 			assert.match(tool.render(80).map(stripTerminalSequences).join("\n"), /native output|line three/);
 			tool.setExpanded(false);
-			assert.equal(tool.render(80).length, 3);
+			assert.equal(tool.render(80).length, 1);
 			tool.updateResult({ ...result, isError: true }, false);
 			assert.match(stripTerminalSequences(tool.render(80)[0]), /^✗ read.*failed$/);
 			// Image components must not bypass the summary path.
 			tool.imageComponents = [{ render: () => ["image row", "image row"] }];
-			assert.equal(tool.render(80).length, 3);
+			assert.equal(tool.render(80).length, 1);
 			assert.equal(result.content[0].text, "line one\nline two\nline three");
 		}
 	}
@@ -64,7 +64,7 @@ test("completed tools are three rows, with native details and accurate mouse exp
 	assert.ok(long.render(80).length > 100);
 	assert.match(long.render(80).map(stripTerminalSequences).join("\n"), /output 99/);
 	long.handleMouse({ type: "click", button: "left", x: 0, y: 0 });
-	assert.equal(long.render(80).length, 3);
+	assert.equal(long.render(80).length, 1);
 	long.setExpanded(true);
 	assert.equal(long.render(80).length, 12, "reopening resets the preview budget");
 	for (const width of [1, 4, 20]) {
@@ -72,7 +72,7 @@ test("completed tools are three rows, with native details and accurate mouse exp
 		assert.ok(long.render(width).every(line => visibleWidth(line) <= width));
 	}
 	await commands.get("tool-detail").handler("collapse", ctx);
-	assert.equal(long.render(80).length, 3);
+	assert.equal(long.render(80).length, 1);
 	// Preview never executes image renderers, even after native expansion.
 	long.imageComponents = [{ render() { assert.fail("image rendered in preview"); } }];
 	long.setExpanded(true);
@@ -98,7 +98,7 @@ test("completed tools are three rows, with native details and accurate mouse exp
 	codeTool.updateResult({ content: [{ type: "text", text: "done" }] }, false);
 	for (const width of [1, 12, 30, 80]) {
 		const rendered = codeTool.render(width);
-		assert.equal(rendered.length, 3);
+		assert.equal(rendered.length, 1);
 		assert.ok(visibleWidth(rendered[0]) <= width);
 	}
 	assert.match(stripTerminalSequences(codeTool.render(80)[0]), /codemode · describeTool/);
@@ -119,7 +119,7 @@ test("tool rows are indented two columns to align with message text", async () =
 	const tool = new ToolExecutionComponent("bash", "id", { command: "ls" }, {}, undefined, { requestRender() {} });
 	tool.updateResult({ content: [{ type: "text", text: "a\nb" }], details: undefined, isError: false }, false);
 	assert.equal(stripTerminalSequences(tool.render(80)[0]), "  › bash · ls");
-	assert.equal(stripTerminalSequences(tool.render(80)[2]), "    └ b");
+	assert.equal(tool.render(80).length, 1);
 	for (const width of [1, 2, 3, 4, 5, 6, 10]) {
 		assert.ok(tool.render(width).every(line => visibleWidth(line) <= width));
 	}
@@ -161,10 +161,10 @@ test("streaming tools stay three rows, highlight the payload, and open on click"
 	assert.equal(plain().length, 3);
 	for (const width of [3, 10, 40]) assert.ok(tool.render(width).every(line => visibleWidth(line) <= width));
 	tool.updateResult({ content: [{ type: "text", text: "ok" }], isError: false }, false);
-	assert.equal(tool.render(60).length, 3, "completion keeps the three-row height");
-	assert.equal(stripTerminalSequences(tool.render(60)[2]), "  └ ok");
-	tool.handleMouse({ type: "click", button: "left", x: 0, y: 1, width: 60, height: 2 });
-	assert.ok(tool.render(60).length > 2, "the └ row opens a completed tool too");
+	assert.equal(tool.render(60).length, 1, "completion collapses to its summary");
+	assert.equal(plain()[0], "› codemode · read");
+	tool.handleMouse({ type: "click", button: "left", x: 0, y: 0, width: 60, height: 1 });
+	assert.ok(tool.render(60).length > 1, "the heading opens a completed tool");
 	const json = new ToolExecutionComponent("read", "id", { path: "a" }, {}, undefined, { requestRender() {} });
 	assert.equal(stripTerminalSequences(json.render(60)[2]), '  └   "path": "a"', "tail skips lone brackets");
 	assert.deepEqual(streamingPayload("write", { path: "a.py", content: "x = 1" }), { text: "x = 1", lang: "python" });

@@ -10,6 +10,8 @@ import { stripTerminalSequences, truncateToWidth, visibleWidth, type TuiMouseEve
 import { createRequire } from "node:module";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
+import { compactPath } from "./tool-paths.ts";
 
 // Pi loads personal extensions through symlinks. Resolve parser dependencies
 // from this checkout, not from the user's ~/.pi/agent directory.
@@ -74,7 +76,7 @@ const ORIGINAL_MOUSE = Symbol.for("will.pi.recessed-tools.original-mouse");
 const WRAPPED_MOUSE = Symbol.for("will.pi.recessed-tools.wrapped-mouse");
 
 /** Deliberately omit payloads/scripts: the transcript should foreground prose. */
-export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity): string {
+export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity, markHome: (text: string) => string = text => text): string {
 	if (name === "codemode") {
 		let cached = scriptCache.get(args);
 		if (!cached || cached.code !== args.code) {
@@ -90,7 +92,13 @@ export function toolSummary(name: string, args: Record<string, unknown>, failed:
 	const target = [args.path, args.file_path, args.command, args.query, args.url]
 		.find((value): value is string => typeof value === "string" && value.length > 0);
 	const clean = (value: string) => stripTerminalSequences(value).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").replace(/\s+/g, " ").trim();
-	return `${failed ? "✗" : "›"} ${clean(name)}${target ? ` · ${clean(target)}` : ""}${failed ? " · failed" : ""}`;
+	const head = `${failed ? "✗" : "›"} ${clean(name)}`;
+	const suffix = failed ? " · failed" : "";
+	const isPath = target !== undefined && (target === args.path || target === args.file_path);
+	const detail = target ? isPath
+		? compactPath(clean(target), homedir(), Math.max(0, width - visibleWidth(head + suffix) - 3), markHome)
+		: clean(target) : "";
+	return `${head}${target ? ` · ${detail}` : ""}${suffix}`;
 }
 
 /** The argument that streams in: what a pending tool is about to run or write. */
@@ -147,7 +155,7 @@ function previewRows(body: string[], width: number, theme: Theme): string[] {
 
 function renderPending(tool: ToolComponent, width: number): string[] {
 	const theme = currentTheme!();
-	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width), width));
+	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width, text => theme.fg("accent", text)), width));
 	const body = toolBody(tool, theme);
 	const row = (bracket: string, line = "") => branchRow(bracket, line, width, theme);
 	if (!streamingOpen.has(tool)) return [header, ...previewRows(body, width, theme)];
@@ -227,10 +235,10 @@ function patchToolHeight(): void {
 		if (!completed(this)) return currentTheme && this.isPartial !== false && width > 2
 			? renderPending(this, width) : original.call(this, width);
 		if (width <= 0) return [];
-		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
+		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width, text => currentTheme!().fg("accent", text));
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
-		// Three rows, like while streaming, so completion does not change the height.
-		if (!this.expanded) return [header, ...previewRows(toolBody(this, currentTheme!()), width, currentTheme!())];
+		// Completed calls return to a single concise summary.
+		if (!this.expanded) return [header];
 		const state = disclosure(this);
 		// Never slice terminal image escape sequences. Preview text only; full
 		// disclosure restores native image rendering intact.
@@ -265,7 +273,7 @@ function patchToolHeight(): void {
 		}
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		selected = new WeakRef(this);
-		if (event.y === 0 || (!this.expanded && (event.y === 1 || event.y === 2))) {
+		if (event.y === 0) {
 			this.setExpanded(!this.expanded);
 			this.ui?.requestRender();
 			return { handled: true };

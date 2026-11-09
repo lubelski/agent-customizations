@@ -103,7 +103,7 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
-- completed, collapsed tools occupy three muted rows, the same height they had while streaming: tool name plus a path, command, query, or URL when available, then `│` and `└` with the latest two preview lines;
+- completed, collapsed tools occupy one concise summary row; click the heading to open details;
 - codemode rows list up to three distinct static tool/discovery call names in source order, with repeat counts and `+N more`; narrow widths show fewer names. These are source call sites, not execution counts—loops and branches are not evaluated. Comments/string examples are ignored; dynamic calls and unparseable/oversized scripts fall back gracefully;
 - clicking either row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
 - click `+10 more` to grow the preview incrementally, or `show all` to restore native full output (including images);
@@ -128,7 +128,7 @@ While a tool call streams in and runs, it stays exactly three rows, so the trans
   └ return [a, b];
 ```
 
-The first row is the summary. Two preview rows show the latest meaningful lines of the streaming payload (syntax-highlighted) or output, with short previews padded to keep the height stable. Branches (`│` then `└`) sit two columns farther in, beneath the tool name. Click any of the three rows to open the tool; click again to close. Completion keeps the same three-row preview.
+The first row is the summary. While streaming, two preview rows show the latest meaningful payload or output lines, with short previews padded to keep the height stable. Branches (`│` then `└`) sit two columns farther in, beneath the tool name. Completion collapses to the summary alone; clicking the heading opens details. File paths in summaries replace the home directory with an accent-colored `~` and use middle ellipses to preserve both ends when space is tight. Literal `~` characters are not recolored.
 
 ## `session-rename.ts`
 
