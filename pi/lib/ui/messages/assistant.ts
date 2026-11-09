@@ -10,12 +10,12 @@ import {
 	Markdown,
 	MouseRegion,
 	rgbColor,
+	stripTerminalSequences,
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
 import {
-	LEFT_PANEL_EDGE,
-	RIGHT_PANEL_EDGE,
+	capPanelRows,
 	renderWithGutter,
 	stabilizeThinkingToolSpacing,
 	type ThinkingLayout,
@@ -65,7 +65,7 @@ type AssistantInternals = {
 	render(width: number): string[];
 };
 
-function assistantBackground(text: string, panelEdges = true): string {
+function assistantBackground(text: string): string {
 	if (!activeTheme) return text;
 
 	// Neutral grays chosen to sit clearly above the terminal background while
@@ -76,12 +76,7 @@ function assistantBackground(text: string, panelEdges = true): string {
 	const mode = activeTheme.getColorMode();
 	const background = backgroundAnsi(color, mode);
 
-	if (getLayout() === "compatible" || !panelEdges || text.length < 2 || text[0] !== " " || text.at(-1) !== " ") {
-		return `${background}${text}\x1b[49m`;
-	}
-
-	const foreground = foregroundAnsi(color, mode);
-	return `\x1b[49m${foreground}${LEFT_PANEL_EDGE}\x1b[39m${background}${text.slice(1, -1)}\x1b[49m${foreground}${RIGHT_PANEL_EDGE}\x1b[39m`;
+	return `${background}${text}\x1b[49m`;
 }
 
 function messageLayout(component: AssistantInternals): ThinkingLayout {
@@ -209,7 +204,8 @@ function patchAssistantRendering(): void {
 	const wrapper = function (this: AssistantInternals, width: number): string[] {
 		styleTextBlocks(this);
 		const render = (w: number) => stabilizeThinkingToolSpacing(original.call(this, w), messageLayout(this));
-		return getLayout() === "compatible" ? renderWithGutter(render, width) : render(width);
+		return renderWithGutter(getLayout() === "compatible" ? render
+			: w => capPanelRows(render(w), stripTerminalSequences, visibleWidth), width);
 	};
 
 	Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true, writable: true });

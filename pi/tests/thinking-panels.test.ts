@@ -31,10 +31,10 @@ for (const theme of ["dark", "light"]) {
   // Spacer, three folded thinking rows, spacer, then the reply panel.
   assert.equal(lines[0].trim(), "");
   assert.ok(lines.slice(1, 4).every(line => /word/.test(line)));
-  assert.match(lines[3], /…$/);
+  assert.match(lines[3], /… $/);
   assert.equal(lines[4].trim(), "");
-  assert.match(lines[5], /^🬞/, "the reply keeps its panel; thinking has none");
-  assert.doesNotMatch(lines.slice(0, 4).join("\n"), /🬞|▐|🬁/);
+  assert.match(lines[5], /^ 🬭+ $/u, "the reply keeps its panel; thinking has none");
+  assert.doesNotMatch(lines.slice(0, 4).join("\n"), /🬭|🬂|▐/);
   const markdown = fold(component).markdown;
   assert.equal(markdown.defaultTextStyle.italic, true);
   assert.equal(markdown.defaultTextStyle.bgColor, undefined);
@@ -72,13 +72,13 @@ test("thinking streams, keeps order, and participates in plain-text mode", async
  assert.doesNotMatch(formatted, /Thinking\.\.\./);
  assert.equal(component.hasToolCalls, true);
  assert.equal(component.isStreaming, true);
- assert.equal(rows(component).filter(line => line.startsWith("🬞")).length, 1, "only the reply has a panel");
- assert.equal(rows(component).at(-1), "", "one gap row before the tool");
+ assert.equal(rows(component).filter(line => line.startsWith(" 🬭")).length, 1, "only the reply has a panel");
+ assert.equal(rows(component).at(-1).trim(), "", "one gap row before the tool");
  await commands.get("plain-text").handler("", ctx);
  component.invalidate();
  const plain = rows(component).join("\n");
  assert.match(plain, /First \*\*decision\*\*/);
- assert.doesNotMatch(plain, /🬞|▐/);
+ assert.doesNotMatch(plain, /🬭|🬂|▐/);
  await commands.get("plain-text").handler("", ctx);
  component.updateContent(message, false);
  assert.equal(component.isStreaming, false);

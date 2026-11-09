@@ -16,8 +16,8 @@ test("plain-text toggles existing and future assistant messages without controls
  const rows = component => component.render(80).map(tuiModule.stripTerminalSequences);
  for (const component of components) {
   const formatted = rows(component);
-  assert.equal(formatted.filter(line => line.startsWith("🬞")).length, 1);
-  assert.equal(formatted.filter(line => line.startsWith("🬁")).length, 1);
+  assert.equal(formatted.filter(line => line.startsWith(" 🬭")).length, 1);
+  assert.equal(formatted.filter(line => line.startsWith(" 🬂")).length, 1);
   assert.doesNotMatch(formatted.join("\n"), /‹|›|fmt|copy/);
  }
  await commands.get("plain-text").handler("", ctx);
@@ -29,12 +29,12 @@ test("plain-text toggles existing and future assistant messages without controls
   assert.match(plain, /```js/);
   assert.match(plain, /  x\(\);/);
   assert.match(plain, /Response was truncated/);
-  assert.doesNotMatch(plain, /🬞|▐|‹|›/);
-  assert.equal(rows(component).filter(line => line === "─".repeat(80)).length, 2);
+  assert.doesNotMatch(plain, /🬭|🬂|▐|‹|›/);
+  assert.equal(rows(component).filter(line => line === ` ${"─".repeat(78)} `).length, 2);
   for (const width of [10, 30, 80]) assert.ok(component.render(width).every(line => tuiModule.visibleWidth(line) <= width));
  }
  await commands.get("plain-text").handler("", ctx);
- for (const component of components) assert.match(rows(component).join("\n"), /🬞/);
+ for (const component of components) assert.match(rows(component).join("\n"), /🬭/);
  // Toggling before a first message also applies to newly rendered messages.
  events.get("session_start")({}, ctx);
  await commands.get("plain-text").handler("", ctx);

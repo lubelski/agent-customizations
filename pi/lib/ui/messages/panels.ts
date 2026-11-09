@@ -11,10 +11,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { foregroundAnsi, Markdown, mixColors, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import {
-	LEFT_PANEL_EDGE,
-	RIGHT_PANEL_EDGE,
 	renderWithGutter,
-	shapePanelCaps,
+	capPanelRows,
 	trimToolRulePadding,
 } from "../../transcript-layout.ts";
 import { attachMessageRendering } from "../../message-controls.ts";
@@ -78,9 +76,9 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 			return trimToolRulePadding(original.call(this, width), stripTerminalSequences);
 		}
 		if (ComponentClass === UserMessageComponent) attachPlainText(this);
-		return layout === "unicode"
-			? shapePanelCaps(original.call(this, width), stripTerminalSequences, visibleWidth)
-			: renderWithGutter(w => original.call(this, w), width);
+		return renderWithGutter(layout === "unicode"
+			? w => capPanelRows(original.call(this, w), stripTerminalSequences, visibleWidth)
+			: w => original.call(this, w), width);
 	};
 }
 
@@ -120,14 +118,7 @@ function patchPanelBackgrounds(): void {
 			return `\x1b[49m${edge}│\x1b[39m${text.slice(1)}`;
 		}
 
-		if (getLayout() === "compatible") return original.call(this, color, text);
-
-		const background = this.getBgAnsi(color);
-		if (background === "\x1b[49m") return original.call(this, color, text);
-
-		const foreground = foregroundAnsi(this.colors[color], this.getColorMode());
-		const middle = text.slice(1, -1);
-		return `\x1b[49m${foreground}${LEFT_PANEL_EDGE}\x1b[39m${background}${middle}\x1b[49m${foreground}${RIGHT_PANEL_EDGE}\x1b[39m`;
+		return original.call(this, color, text);
 	} as Theme["bg"];
 }
 

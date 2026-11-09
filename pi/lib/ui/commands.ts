@@ -4,7 +4,7 @@ import type { UiSetting, UiSettingsStore } from "./settings.ts";
 const COMMANDS: readonly [string, UiSetting, string][] = [
 	["ui-toggle-compact-header", "compactHeader", "Compact header: drop the top rule"],
 	["ui-toggle-compact-footer", "compactFooter", "Compact footer: three rows instead of seven"],
-	["ui-toggle-font-compat", "fontCompat", "Font compatibility: whole-row padding and gaps instead of half-block glyphs"],
+	["ui-toggle-font-compat", "fontCompat", "Font compatibility: whole blank top/bottom padding rows instead of thin sextant caps"],
 ];
 
 /** Each command flips one saved preference; the three are independent. */
