@@ -90,55 +90,32 @@ def smoke(mode, theme, presentation="ui"):
             start = len(output)
             os.write(master, b"/inventory\r")
             expect("/inventory to expand", start)
+            def toggle(name, label, state):
+                nonlocal start
+                start = len(output)
+                os.write(master, f"/ui-toggle-{name}\r".encode())
+                expect(f"{label} {state} (saved).", start)
             if presentation == "ui":
-                for command, message in (
-                    (b"/ui-mobile\r", "UI mobile (saved)."),
-                    (b"/ui-messages unicode\r", "Message layout unicode (saved)."),
-                    (b"/ui-compact\r", "UI compact (saved)."),
-                ):
-                    start = len(output)
-                    os.write(master, command)
-                    expect(message, start)
-                assert json.loads((agent / "ui.json").read_text())["messages"]["layout"] == "unicode"
-                start = len(output)
-                os.write(master, b"/ui-mobile\r")
-                expect("UI mobile (saved).", start)
+                toggle("compact-footer", "Compact footer", "on")
+                toggle("font-compat", "Font compatibility", "on")
+                toggle("compact-header", "Compact header", "on")
                 assert json.loads((agent / "ui.json").read_text()) == {
-                    "header": {"showTopBar": False}, "footer": {"compact": True}, "messages": {"layout": "compatible"},
+                    "compactFooter": True, "fontCompat": True, "compactHeader": True,
                 }
-            if presentation == "ui" and mode == "fullscreen":
-                start = len(output)
-                os.write(master, b"/header-bar off\r")
-                expect("Header top bar off (saved).", start)
-                assert json.loads((agent / "ui.json").read_text())["header"]["showTopBar"] is False
             for _ in range(2):
                 start = len(output)
                 os.write(master, b"/reload\r")
                 expect("Reloaded keybindings", start)
                 expect("/inventory to expand", start)
                 if presentation == "ui":
+                    # Toggling proves /reload read the persisted true value.
+                    toggle("compact-header", "Compact header", "off")
+                    toggle("compact-header", "Compact header", "on")
                     saved = json.loads((agent / "ui.json").read_text())
-                    assert saved["footer"]["compact"] is True
-                    assert saved["messages"]["layout"] == "compatible"
-                if presentation == "ui" and mode == "fullscreen":
-                    # Toggle proves /reload read the persisted false value (it must become true).
-                    start = len(output)
-                    os.write(master, b"/header-bar\r")
-                    expect("Header top bar on (saved).", start)
-                    assert json.loads((agent / "ui.json").read_text())["header"]["showTopBar"] is True
-                    start = len(output)
-                    os.write(master, b"/header-bar off\r")
-                    expect("Header top bar off (saved).", start)
+                    assert saved["compactFooter"] is True and saved["fontCompat"] is True
             if presentation == "ui":
-                for command, message in (
-                    (b"/ui-desktop\r", "UI desktop (saved)."),
-                    (b"/ui-footer compact\r", "Footer compact (saved)."),
-                    (b"/ui-footer full\r", "Footer full (saved)."),
-                    (b"/ui-mobile\r", "UI mobile (saved)."),
-                ):
-                    start = len(output)
-                    os.write(master, command)
-                    expect(message, start)
+                toggle("compact-footer", "Compact footer", "off")
+                toggle("compact-footer", "Compact footer", "on")
             # Trigger autocomplete and render at narrow and wide sizes.
             start = len(output)
             os.write(master, b"/ren")

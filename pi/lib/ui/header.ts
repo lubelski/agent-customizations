@@ -50,36 +50,7 @@ export function renderTitleBanner(title: string | undefined, width: number, them
 export default function installHeader(pi: ExtensionAPI, settings: UiSettingsStore): void {
 	let requestRender: (() => void) | undefined;
 	let cleanup: (() => void) | undefined;
-	let updateLayout: (() => void) | undefined;
-	const showTopBar = () => settings.current.header.showTopBar;
-
-	pi.registerCommand("header-bar", {
-		description: "Show or hide the header's top rule (saved): on|off|toggle",
-		getArgumentCompletions: (prefix) => {
-			const items = ["on", "off", "toggle"].filter((value) => value.startsWith(prefix))
-				.map((value) => ({ value, label: value }));
-			return items.length ? items : null;
-		},
-		handler: async (args, ctx) => {
-			if (ctx.mode !== "tui" || !updateLayout) {
-				ctx.ui.notify("Header bar requires an active supported fullscreen layout.", "warning");
-				return;
-			}
-			const action = args.trim() || "toggle";
-			if (!["on", "off", "toggle"].includes(action)) {
-				ctx.ui.notify("Usage: /header-bar [on|off|toggle]", "warning");
-				return;
-			}
-			const next = action === "toggle" ? !showTopBar() : action === "on";
-			try {
-				settings.setHeaderTopBar(next);
-			} catch (error) {
-				ctx.ui.notify(`Could not save header preference: ${error}`, "error");
-				return;
-			}
-			ctx.ui.notify(`Header top bar ${next ? "on" : "off"} (saved).`, "info");
-		},
-	});
+	const showTopBar = () => !settings.current.compactHeader;
 
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
@@ -120,7 +91,6 @@ export default function installHeader(pi: ExtensionAPI, settings: UiSettingsStor
 				root.addChild(original, { basis: 0, grow: 1, shrink: 1, minSize: 0 });
 			};
 			resize();
-			updateLayout = resize;
 			const unsubscribe = settings.subscribe(() => { resize(); refresh(); });
 			host.setLayoutRoot(root);
 			requestRender = refresh;
@@ -131,7 +101,6 @@ export default function installHeader(pi: ExtensionAPI, settings: UiSettingsStor
 				unsubscribe();
 				if (host.layoutRoot === root) host.setLayoutRoot?.(original);
 				if (requestRender === refresh) requestRender = undefined;
-				if (updateLayout === resize) updateLayout = undefined;
 				if (cleanup === dispose) cleanup = undefined;
 				refresh();
 			};

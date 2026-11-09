@@ -35,34 +35,24 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout: one uncolored gap column, then one column of panel padding, on each side, with no special block/sextant glyphs. Tool rows are indented one column to share the panels' left edge. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
+Existing tools and commands are preserved. Message panels use half-block and sextant glyphs for their padding and gaps by default. Font compatibility swaps those for whole blank rows and columns, which take more space but render in any font. Tool rows are indented one column to share the panels' left edge. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
-### Presets and individual controls
+### Options
 
-| Command | Header | Footer | Message panels |
-|---|---|---|---|
-| `/ui-mobile` | Two rows, no top rule | Three rows | Compatible |
-| `/ui-desktop` | Three rows | Seven rows | Unicode |
-| `/ui-compact` | Two rows, no top rule | Three rows | Leave unchanged |
+Three independent options, each off by default and flipped by its own command:
 
-Presets apply immediately and save concrete preferences in one atomic update. They are explicit selections, not toggles or automatic terminal detection. Individual controls can override any part afterward:
+| Command | Setting | When on |
+|---|---|---|
+| `/ui-toggle-compact-header` | `compactHeader` | Header drops its top rule: two rows instead of three |
+| `/ui-toggle-compact-footer` | `compactFooter` | Footer collapses to three rows instead of seven |
+| `/ui-toggle-font-compat` | `fontCompat` | Panels use whole-row padding and gaps instead of half-block glyphs |
 
-```text
-/header-bar [on|off|toggle]
-/ui-footer [compact|full|toggle]
-/ui-messages compatible|unicode
-```
+Changes apply immediately. Commands take no arguments and require interactive mode; header rendering applies only in supported fullscreen layouts.
 
-`/header-bar` and `/ui-footer` without arguments toggle their setting. `/ui-messages` without arguments reports the current message layout. Use `/ui-messages unicode` to opt into the original fractional caps and side edges. `/ui-desktop` selects the Unicode panels, assuming a desktop terminal font with block and sextant glyphs. Commands require interactive mode; header rendering applies only in supported fullscreen layouts.
-
-Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). For example, `/ui-mobile` saves:
+Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). With all three on, it holds:
 
 ```json
-{
-  "header": { "showTopBar": false },
-  "footer": { "compact": true },
-  "messages": { "layout": "compatible" }
-}
+{ "compactHeader": true, "compactFooter": true, "fontCompat": true }
 ```
 
 Settings are shared across projects and clients using that agent directory, not tied to a conversation or connecting device. Commands update the current instance and future sessions; other running processes are not live-synchronized. No file is created until a preference is saved. Writes are atomic and preserve unrelated keys. Invalid settings warn and fall back to defaults; failed saves leave the display unchanged. Malformed JSON is never overwritten. The exploratory `session-title-banner.json` format was never deployed and is not read or migrated.
@@ -150,26 +140,19 @@ pi remove npm:@moguw/pi-session-rename
 
 Shows the session title, directory, and context usage in a fixed fullscreen header. The top rule is optional; hiding it reduces the header from three rows to two without removing the title or bottom rule.
 
-```text
-/header-bar            Toggle the top rule and save
-/header-bar toggle     Toggle the top rule and save
-/header-bar off        Hide the top rule and save
-/header-bar on         Show the top rule and save (default)
-```
-
-The command updates `header.showTopBar` in the shared `ui.json` preferences above. It requires an active supported fullscreen layout. The title and bottom rule remain visible in both modes.
+`/ui-toggle-compact-header` turns this on or off. The title and bottom rule remain visible in both modes.
 
 ## Footer/editor: `lib/ui/footer.ts`
 
 ### Compact footer
 
-`/ui-footer compact` (also selected by `/ui-mobile` and `/ui-compact`) reduces the collapsed footer from seven rows to **three**:
+`/ui-toggle-compact-footer` reduces the collapsed footer from seven rows to **three**:
 
 1. Branch and active workspace/worktree path, middle-truncated to fit.
 2. Context percentage, idle/working/queued state, and model ID.
 3. Clickable task links, or the inventory summary when there are no links.
 
-Links truncate rather than adding rows. `/inventory` and Alt+I still expand the full MCP/extension list; when links occupy the third row, the expanded inventory adds its summary below them. Usage totals, separate primary-checkout/worktree fields, model provider/thinking level, and queue-key reminders remain available in the full footer (`/ui-footer full`). Narrow layouts prioritize branch, context, and run state over long paths/model names.
+Links truncate rather than adding rows. `/inventory` and Alt+I still expand the full MCP/extension list; when links occupy the third row, the expanded inventory adds its summary below them. Usage totals, separate primary-checkout/worktree fields, model provider/thinking level, and queue-key reminders remain available in the full footer. Narrow layouts prioritize branch, context, and run state over long paths/model names.
 
 Autocomplete uses three suggestions in compact mode. Pi requires at least three suggestions, so a long list adds its native overflow indicator as a fourth row—temporarily one row taller than the compact footer. Full mode retains six suggestions plus the indicator. Short menus are padded to the selected footer height. Switching density updates both the footer and the editor immediately.
 

@@ -459,14 +459,14 @@ export default function (pi: ExtensionAPI, settings?: UiSettingsStore): void {
 		unsubscribeSettings?.();
 		updateAutocomplete = undefined;
 		const state: LowerPaneState = {
-			compact: settings?.current.footer.compact ?? false,
+			compact: settings?.current.compactFooter ?? false,
 			autocompleteOpen: false,
 			inventoryExpanded: false,
 			shortcuts: { submit: "↵", followUp: "⌥↵", dequeue: "⌥↑" },
 		};
 		activeState = state;
 		unsubscribeSettings = settings?.subscribe(() => {
-			state.compact = settings.current.footer.compact;
+			state.compact = settings.current.compactFooter;
 			updateAutocomplete?.();
 			// Repaint cached transcript panels when the message layout changes too.
 			activeTui?.invalidate?.();

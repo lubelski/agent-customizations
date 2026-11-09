@@ -11,7 +11,7 @@ for (const order of ["ui-first", "legacy-first"]) {
 	test(`presentation ownership prevents mixed and duplicate loading: ${order}, including reload`, (t) => {
 		const dir = mkdtempSync(join(tmpdir(), "ui-owner-"));
 		t.after(() => rmSync(dir, { recursive: true, force: true }));
-		writeFileSync(join(dir, "ui.json"), JSON.stringify({ messages: { layout: "unicode" } }));
+		writeFileSync(join(dir, "ui.json"), JSON.stringify({}));
 		const output = execFileSync(process.execPath, [fileURLToPath(new URL("./ui-entrypoint-probe.ts", import.meta.url)), order], {
 			env: { ...process.env, PI_CODING_AGENT_DIR: dir }, encoding: "utf8", timeout: 30_000,
 		});
