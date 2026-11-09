@@ -86,6 +86,7 @@ Shapes transcript panels:
 
 - user, custom and assistant panels sit one gap column in from each side, with one column of padding inside, so sides are whole cells;
 - by default their top and bottom padding rows become square caps one third of a row tall;
+- with those caps, two panels that abut (user or assistant) drop the blank gap row between them, since the caps already separate them; gaps next to thinking and tools stay;
 - tool panels lose their filled background and right edge, leaving one thin, very low-contrast left rule;
 - the tool rule starts and ends with rendered tool content rather than extending through box padding;
 - Pi's standalone pre-tool separator is removed to tighten the transition from assistant prose;
