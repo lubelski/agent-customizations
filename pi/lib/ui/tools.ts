@@ -119,26 +119,34 @@ function highlighted(text: string, lang?: string): string[] {
  * the latest streamed line (output once it runs). Clicking opens it to watch
  * the whole payload stream; it collapses to one row when it completes.
  */
-function renderPending(tool: ToolComponent, width: number): string[] {
-	const theme = currentTheme!();
+/** Payload lines (highlighted) then output lines, for the └ row and the opened view. */
+function toolBody(tool: ToolComponent, theme: Theme): string[] {
 	const name = tool.toolName ?? "tool";
 	const args = tool.args ?? {};
-	const header = theme.fg("dim", truncateToWidth(toolSummary(name, args, false, width), width));
 	const payload = streamingPayload(name, args);
 	const lines = payload.text.trim() ? highlighted(payload.text.replace(/\s+$/, ""), payload.lang) : [];
 	const output = (tool.result as { content?: { type: string; text?: string }[] } | undefined)?.content
 		?.filter(part => part.type === "text" && part.text).map(part => part.text!).join("\n").replace(/\s+$/, "").split("\n")
 		.map(line => theme.fg("dim", stripTerminalSequences(line))) ?? [];
-	const body = [...lines, ...output.filter(line => stripTerminalSequences(line).trim())];
+	return [...lines, ...output.filter(line => stripTerminalSequences(line).trim())];
+}
+
+/** The └ row: the latest line with words (not a lone closing bracket). */
+function tailRow(body: string[], width: number, theme: Theme): string {
+	const reversed = [...body].reverse();
+	const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
+		?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
+	if (width < 3) return theme.fg("dim", truncateToWidth("└", width));
+	return theme.fg("dim", "└ ") + truncateToWidth(tail, width - 2);
+}
+
+function renderPending(tool: ToolComponent, width: number): string[] {
+	const theme = currentTheme!();
+	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width), width));
+	const body = toolBody(tool, theme);
 	const inner = Math.max(1, width - 2);
 	const row = (bracket: string, line = "") => theme.fg("dim", bracket + " ") + truncateToWidth(line, inner);
-	if (!streamingOpen.has(tool)) {
-		// Prefer a line with words over a lone closing bracket.
-		const reversed = [...body].reverse();
-		const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
-			?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
-		return [header, row("└", tail)];
-	}
+	if (!streamingOpen.has(tool)) return [header, tailRow(body, width, theme)];
 	if (!body.length) return [header, row("└")];
 	return [header, ...body.map((line, index) => row(index === body.length - 1 ? "└" : "│", line))];
 }
@@ -217,7 +225,8 @@ function patchToolHeight(): void {
 		if (width <= 0) return [];
 		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
-		if (!this.expanded) return [header];
+		// Two rows, like while streaming, so completion does not change the height.
+		if (!this.expanded) return [header, tailRow(toolBody(this, currentTheme!()), width, currentTheme!())];
 		const state = disclosure(this);
 		// Never slice terminal image escape sequences. Preview text only; full
 		// disclosure restores native image rendering intact.
@@ -252,7 +261,7 @@ function patchToolHeight(): void {
 		}
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		selected = new WeakRef(this);
-		if (event.y === 0) {
+		if (event.y === 0 || (!this.expanded && event.y === 1)) {
 			this.setExpanded(!this.expanded);
 			this.ui?.requestRender();
 			return { handled: true };
