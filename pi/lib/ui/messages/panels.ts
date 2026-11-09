@@ -17,6 +17,7 @@ import {
 } from "../../transcript-layout.ts";
 import { attachMessageRendering } from "../../message-controls.ts";
 import { plainDivider, plainTextState } from "./assistant.ts";
+import { copyMouse, decorateCopy } from "./copy.ts";
 
 import type { MessageLayout } from "../settings.ts";
 
@@ -90,6 +91,16 @@ function attachPlainText(component: Renderable): void {
 	for (const child of children) {
 		if (!(child instanceof Markdown) || plainControls.has(child)) continue;
 		attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], plainTextState, plainDivider);
+		// Cap at the Markdown level so the copy label can sit on the cap row.
+		const render = child.render.bind(child);
+		child.render = (width: number) => {
+			if (plainTextState.plain) return render(width);
+			const lines = getLayout() === "unicode" ? capPanelRows(render(width), stripTerminalSequences, visibleWidth) : render(width);
+			return decorateCopy(lines, child);
+		};
+		const message = component as unknown as { text?: string };
+		(child as unknown as { handleMouse?: unknown }).handleMouse = (event: Parameters<typeof copyMouse>[2]) =>
+			plainTextState.plain ? undefined : copyMouse(child, () => message.text ?? (child as unknown as { text: string }).text, event);
 		plainControls.add(child);
 	}
 }

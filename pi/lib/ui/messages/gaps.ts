@@ -1,4 +1,5 @@
 import { Container, stripTerminalSequences } from "@earendil-works/pi-tui";
+import { clearCopyHover } from "./copy.ts";
 
 /**
  * With thin caps, a panel's bottom cap already separates it from the next
@@ -11,7 +12,8 @@ import { Container, stripTerminalSequences } from "@earendil-works/pi-tui";
 
 // Caps may or may not have the gutter yet: Containers inside a message see them before it is added.
 const BOTTOM_CAP = /^ ?🬂+ ?$/u;
-const TOP_CAP = /^ ?🬭+ ?$/u;
+// A hovered top cap carries the COPY label (see copy.ts).
+const TOP_CAP = /^ ?🬭+(?:COPY🬭+)? ?$/u;
 /** Invisible SGR prefix identifying folded-thinking rows. */
 export const THINKING_MARK = "\x1b[23;23m";
 const ORIGINAL_RENDER = Symbol.for("will.pi.ui.container.original-render");
@@ -83,6 +85,11 @@ export function installGapCollapse(enabled: () => boolean): void {
 	// Pi hit-tests children by the heights recorded above (uncollapsed), so map
 	// the click from collapsed rows back to uncollapsed ones and let Pi dispatch.
 	target.handleMouse = function (this: Patched, event: MouseEvent): unknown {
+		// Hover has no leave event: clear it on every move; the panel under the pointer re-claims it.
+		if (event.type === "move" && clearCopyHover()) return route.call(this, event) ?? { handled: true };
+		return route.call(this, event);
+	};
+	const route = function (this: Patched, event: MouseEvent): unknown {
 		const layout = collapsed.get(this);
 		if (!layout || layout.width !== event.width) return mouse.call(this, event);
 		if (event.y < 0 || event.y >= event.height) return undefined;
