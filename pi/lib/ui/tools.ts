@@ -10,6 +10,8 @@ import { stripTerminalSequences, truncateToWidth, visibleWidth, type TuiMouseEve
 import { createRequire } from "node:module";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
+import { compactPath } from "./tool-paths.ts";
 
 // Pi loads personal extensions through symlinks. Resolve parser dependencies
 // from this checkout, not from the user's ~/.pi/agent directory.
@@ -74,7 +76,7 @@ const ORIGINAL_MOUSE = Symbol.for("will.pi.recessed-tools.original-mouse");
 const WRAPPED_MOUSE = Symbol.for("will.pi.recessed-tools.wrapped-mouse");
 
 /** Deliberately omit payloads/scripts: the transcript should foreground prose. */
-export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity): string {
+export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity, markHome: (text: string) => string = text => text): string {
 	if (name === "codemode") {
 		let cached = scriptCache.get(args);
 		if (!cached || cached.code !== args.code) {
@@ -90,7 +92,13 @@ export function toolSummary(name: string, args: Record<string, unknown>, failed:
 	const target = [args.path, args.file_path, args.command, args.query, args.url]
 		.find((value): value is string => typeof value === "string" && value.length > 0);
 	const clean = (value: string) => stripTerminalSequences(value).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").replace(/\s+/g, " ").trim();
-	return `${failed ? "✗" : "›"} ${clean(name)}${target ? ` · ${clean(target)}` : ""}${failed ? " · failed" : ""}`;
+	const head = `${failed ? "✗" : "›"} ${clean(name)}`;
+	const suffix = failed ? " · failed" : "";
+	const isPath = target !== undefined && (target === args.path || target === args.file_path);
+	const detail = target ? isPath
+		? compactPath(clean(target), homedir(), Math.max(0, width - visibleWidth(head + suffix) - 3), markHome)
+		: clean(target) : "";
+	return `${head}${target ? ` · ${detail}` : ""}${suffix}`;
 }
 
 /** The argument that streams in: what a pending tool is about to run or write. */
@@ -115,9 +123,8 @@ function highlighted(text: string, lang?: string): string[] {
 }
 
 /**
- * A pending tool keeps a fixed two-row height: its summary, then a dim └ with
- * the latest streamed line (output once it runs). Clicking opens it to watch
- * the whole payload stream; it collapses to one row when it completes.
+ * A collapsed tool keeps a fixed three-row height: its summary and two
+ * preview lines (output once it runs). Clicking opens the full details.
  */
 /** Payload lines (highlighted) then output lines, for the └ row and the opened view. */
 function toolBody(tool: ToolComponent, theme: Theme): string[] {
@@ -131,22 +138,27 @@ function toolBody(tool: ToolComponent, theme: Theme): string[] {
 	return [...lines, ...output.filter(line => stripTerminalSequences(line).trim())];
 }
 
-/** The └ row: the latest line with words (not a lone closing bracket). */
-function tailRow(body: string[], width: number, theme: Theme): string {
-	const reversed = [...body].reverse();
-	const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
-		?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
-	if (width < 3) return theme.fg("dim", truncateToWidth("└", width));
-	return theme.fg("dim", "└ ") + truncateToWidth(tail, width - 2);
+/** Branches sit beneath the tool name, two columns past the summary marker. */
+function branchRow(bracket: string, line: string, width: number, theme: Theme): string {
+	const prefix = `  ${bracket} `;
+	if (width < 4) return theme.fg("dim", prefix.slice(0, Math.max(0, width)));
+	return theme.fg("dim", prefix) + truncateToWidth(line, width - 4);
+}
+
+/** Two latest meaningful lines; pad short previews to avoid height changes. */
+function previewRows(body: string[], width: number, theme: Theme): string[] {
+	const meaningful = body.filter(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)));
+	const lines = (meaningful.length ? meaningful : body.filter(line => stripTerminalSequences(line).trim())).slice(-2);
+	while (lines.length < 2) lines.unshift("");
+	return lines.map((line, index) => branchRow(index === 0 ? "│" : "└", line, width, theme));
 }
 
 function renderPending(tool: ToolComponent, width: number): string[] {
 	const theme = currentTheme!();
-	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width), width));
+	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width, text => theme.fg("accent", text)), width));
 	const body = toolBody(tool, theme);
-	const inner = Math.max(1, width - 2);
-	const row = (bracket: string, line = "") => theme.fg("dim", bracket + " ") + truncateToWidth(line, inner);
-	if (!streamingOpen.has(tool)) return [header, tailRow(body, width, theme)];
+	const row = (bracket: string, line = "") => branchRow(bracket, line, width, theme);
+	if (!streamingOpen.has(tool)) return [header, ...previewRows(body, width, theme)];
 	if (!body.length) return [header, row("└")];
 	return [header, ...body.map((line, index) => row(index === body.length - 1 ? "└" : "│", line))];
 }
@@ -223,10 +235,10 @@ function patchToolHeight(): void {
 		if (!completed(this)) return currentTheme && this.isPartial !== false && width > 2
 			? renderPending(this, width) : original.call(this, width);
 		if (width <= 0) return [];
-		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
+		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width, text => currentTheme!().fg("accent", text));
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
-		// Two rows, like while streaming, so completion does not change the height.
-		if (!this.expanded) return [header, tailRow(toolBody(this, currentTheme!()), width, currentTheme!())];
+		// Completed calls return to a single concise summary.
+		if (!this.expanded) return [header];
 		const state = disclosure(this);
 		// Never slice terminal image escape sequences. Preview text only; full
 		// disclosure restores native image rendering intact.
@@ -261,7 +273,7 @@ function patchToolHeight(): void {
 		}
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		selected = new WeakRef(this);
-		if (event.y === 0 || (!this.expanded && event.y === 1)) {
+		if (event.y === 0) {
 			this.setExpanded(!this.expanded);
 			this.ui?.requestRender();
 			return { handled: true };
