@@ -20,10 +20,10 @@ test("completed tools are one row, with native details and accurate mouse expans
 		handlers.get("session_start")({}, ctx);
 		for (const definition of [undefined, { renderShell: "self", renderCall: () => new Text("native call", 0, 0), renderResult: () => new Text("native output", 0, 0) }]) {
 			const tool = new ToolExecutionComponent("read", "id", { path: "/日本語/long-file.ts" }, {}, definition, ui);
-			assert.deepEqual(tool.render(80).map(stripTerminalSequences), ["› read · /日本語/long-file.ts", "└   \"path\": \"/日本語/long-file.ts\""], "pending tool is two rows");
+			assert.deepEqual(tool.render(80).map(stripTerminalSequences), ["› read · /日本語/long-file.ts", "  └   \"path\": \"/日本語/long-file.ts\""], "pending tool is two rows");
 			const result = { content: [{ type: "text", text: "line one\nline two\nline three" }], details: undefined, isError: false };
 			tool.updateResult(result, true);
-			assert.deepEqual(tool.render(80).map(stripTerminalSequences).at(-1), "└ line three", "running tool tails its output");
+			assert.deepEqual(tool.render(80).map(stripTerminalSequences).at(-1), "  └ line three", "running tool tails its output");
 			tool.updateResult(result, false);
 			for (const width of [1, 4, 20, 80]) {
 				const lines = tool.render(width);
@@ -32,7 +32,7 @@ test("completed tools are one row, with native details and accurate mouse expans
 			}
 			assert.equal(stripTerminalSequences(tool.render(80)[0]), "› read · /日本語/long-file.ts");
 			assert.equal(tool.handleMouse({ type: "scroll", y: 0 }), undefined);
-			assert.equal(stripTerminalSequences(tool.render(80)[1]), definition ? "└ line three" : "└ line three");
+			assert.equal(stripTerminalSequences(tool.render(80)[1]), definition ? "  └ line three" : "  └ line three");
 			assert.equal(tool.handleMouse({ type: "click", button: "left", y: 2 }), undefined);
 			assert.deepEqual(tool.handleMouse({ type: "click", button: "left", y: 0 }), { handled: true });
 			assert.ok(tool.render(80).length > 1);
@@ -119,6 +119,10 @@ test("tool rows are indented two columns to align with message text", async () =
 	const tool = new ToolExecutionComponent("bash", "id", { command: "ls" }, {}, undefined, { requestRender() {} });
 	tool.updateResult({ content: [{ type: "text", text: "a\nb" }], details: undefined, isError: false }, false);
 	assert.equal(stripTerminalSequences(tool.render(80)[0]), "  › bash · ls");
+	assert.equal(stripTerminalSequences(tool.render(80)[1]), "    └ b");
+	for (const width of [1, 2, 3, 4, 5, 6, 10]) {
+		assert.ok(tool.render(width).every(line => visibleWidth(line) <= width));
+	}
 	tool.setExpanded(true);
 	for (const line of tool.render(40)) {
 		assert.ok(stripTerminalSequences(line).startsWith("  "));
@@ -142,27 +146,27 @@ test("streaming tools stay two rows, highlight the payload, and open on click", 
 	const args = { code: "" };
 	const tool = new ToolExecutionComponent("codemode", "id", args, {}, undefined, { requestRender() { renders++; } });
 	const plain = () => tool.render(60).map(stripTerminalSequences);
-	assert.deepEqual(plain(), ["› codemode", "└ "]);
+	assert.deepEqual(plain(), ["› codemode", "  └ "]);
 	for (const chunk of ["const a = await tools.read({ path: 'x' });\n", "const b = 2;\n", "return [a, b];"]) {
 		args.code += chunk;
 		tool.updateArgs?.(args);
 		assert.equal(plain().length, 2, "height is fixed while streaming");
 	}
-	assert.equal(plain()[1], "└ return [a, b];");
+	assert.equal(plain()[1], "  └ return [a, b];");
 	assert.notEqual(tool.render(60)[1], stripTerminalSequences(tool.render(60)[1]), "payload is highlighted");
 	assert.deepEqual(tool.handleMouse({ type: "click", button: "left", x: 0, y: 1, width: 60, height: 2 }), { handled: true });
 	assert.equal(renders, 1);
-	assert.deepEqual(plain(), ["› codemode · read", "│ const a = await tools.read({ path: 'x' });", "│ const b = 2;", "└ return [a, b];"]);
+	assert.deepEqual(plain(), ["› codemode · read", "  │ const a = await tools.read({ path: 'x' });", "  │ const b = 2;", "  └ return [a, b];"]);
 	tool.handleMouse({ type: "click", button: "left", x: 0, y: 3, width: 60, height: 4 });
 	assert.equal(plain().length, 2);
 	for (const width of [3, 10, 40]) assert.ok(tool.render(width).every(line => visibleWidth(line) <= width));
 	tool.updateResult({ content: [{ type: "text", text: "ok" }], isError: false }, false);
 	assert.equal(tool.render(60).length, 2, "completion keeps the two-row height");
-	assert.equal(stripTerminalSequences(tool.render(60)[1]), "└ ok");
+	assert.equal(stripTerminalSequences(tool.render(60)[1]), "  └ ok");
 	tool.handleMouse({ type: "click", button: "left", x: 0, y: 1, width: 60, height: 2 });
 	assert.ok(tool.render(60).length > 2, "the └ row opens a completed tool too");
 	const json = new ToolExecutionComponent("read", "id", { path: "a" }, {}, undefined, { requestRender() {} });
-	assert.equal(stripTerminalSequences(json.render(60)[1]), '└   "path": "a"', "tail skips lone brackets");
+	assert.equal(stripTerminalSequences(json.render(60)[1]), '  └   "path": "a"', "tail skips lone brackets");
 	assert.deepEqual(streamingPayload("write", { path: "a.py", content: "x = 1" }), { text: "x = 1", lang: "python" });
 	assert.deepEqual(streamingPayload("bash", { command: "ls" }), { text: "ls", lang: "bash" });
 	assert.equal(streamingPayload("edit", { path: "a.ts", edits: [{ oldText: "a", newText: "b" }] }).text, "b");

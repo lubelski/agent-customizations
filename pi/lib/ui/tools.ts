@@ -131,21 +131,26 @@ function toolBody(tool: ToolComponent, theme: Theme): string[] {
 	return [...lines, ...output.filter(line => stripTerminalSequences(line).trim())];
 }
 
+/** Branches sit beneath the tool name, two columns past the summary marker. */
+function branchRow(bracket: string, line: string, width: number, theme: Theme): string {
+	const prefix = `  ${bracket} `;
+	if (width < 4) return theme.fg("dim", prefix.slice(0, Math.max(0, width)));
+	return theme.fg("dim", prefix) + truncateToWidth(line, width - 4);
+}
+
 /** The └ row: the latest line with words (not a lone closing bracket). */
 function tailRow(body: string[], width: number, theme: Theme): string {
 	const reversed = [...body].reverse();
 	const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
 		?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
-	if (width < 3) return theme.fg("dim", truncateToWidth("└", width));
-	return theme.fg("dim", "└ ") + truncateToWidth(tail, width - 2);
+	return branchRow("└", tail, width, theme);
 }
 
 function renderPending(tool: ToolComponent, width: number): string[] {
 	const theme = currentTheme!();
 	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width), width));
 	const body = toolBody(tool, theme);
-	const inner = Math.max(1, width - 2);
-	const row = (bracket: string, line = "") => theme.fg("dim", bracket + " ") + truncateToWidth(line, inner);
+	const row = (bracket: string, line = "") => branchRow(bracket, line, width, theme);
 	if (!streamingOpen.has(tool)) return [header, tailRow(body, width, theme)];
 	if (!body.length) return [header, row("└")];
 	return [header, ...body.map((line, index) => row(index === body.length - 1 ? "└" : "│", line))];

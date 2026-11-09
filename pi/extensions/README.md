@@ -124,10 +124,10 @@ While a tool call streams in and runs, it stays exactly two rows, so the transcr
 
 ```text
 › codemode · read, bash
-└ return [a, b];
+  └ return [a, b];
 ```
 
-The first row is the summary. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it keeps the same two rows, with the `└` row showing the last output line.
+The first row is the summary. Branches (`└` and `│`) sit two columns farther in, beneath the tool name. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it keeps the same two rows, with the `└` row showing the last output line.
 
 ## `session-rename.ts`
 
