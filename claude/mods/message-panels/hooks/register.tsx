@@ -51,10 +51,18 @@ async function detectScheme($: EngineInterface): Promise<Scheme> {
   }
 }
 
+/** Writes the scheme only when it changed, so an unchanged check redraws nothing. */
 async function refreshScheme($: EngineInterface): Promise<void> {
   const next = await detectScheme($)
-  await update($, scheme, () => next)
+  if ((await read($, scheme)) !== next) await update($, scheme, () => next)
 }
+
+// How often the mod checks the scheme again. Under `auto`, the terminal can
+// switch between light and dark with no event the mod sees.
+const SCHEME_POLL_MS = 3000
+
+// The running check, cancelled before a reload starts another.
+let schemePoll: { cancel: () => void } | undefined
 
 async function palette($: EngineInterface): Promise<Palette> {
   return PALETTES[await read($, scheme)]
@@ -317,11 +325,13 @@ function holdsEngine(node: unknown): boolean {
 
 
 export const register: Register = on => {
-  // The palette follows the theme: read at start and on every reload, and
-  // again when the person changes the theme.
+  // The palette follows the theme: read at start and on every reload, again
+  // when the person changes the theme, and every few seconds for `auto`.
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await refreshScheme($)
+    schemePoll?.cancel()
+    schemePoll = $.clock.every(SCHEME_POLL_MS, () => refreshScheme($))
     return result
   })
 
