@@ -10,6 +10,8 @@ import {
 	Markdown,
 	MouseRegion,
 	rgbColor,
+	truncateToWidth,
+	visibleWidth,
 } from "@earendil-works/pi-tui";
 import {
 	LEFT_PANEL_EDGE,
@@ -91,33 +93,75 @@ function messageLayout(component: AssistantInternals): ThinkingLayout {
 	};
 }
 
+const THINKING_LINES = 3;
+const expandedThinking = new WeakMap<object, Set<number>>();
+const TRAILING_SPACE = / +((?:\x1b\[[0-9;]*m)*)$/;
+
+/** Thinking without a panel: muted italic text, folded to three lines; click toggles. */
+class ThinkingFold {
+	readonly markdown: Markdown;
+	private readonly owner: object;
+	private readonly run: number;
+	constructor(markdown: Markdown, owner: object, run: number) {
+		this.markdown = markdown;
+		this.owner = owner;
+		this.run = run;
+	}
+	get expanded(): boolean { return expandedThinking.get(this.owner)?.has(this.run) ?? false; }
+	render(width: number): string[] {
+		const lines = this.markdown.render(width);
+		if (state.plain || this.expanded || lines.length <= THINKING_LINES) return lines;
+		const shown = lines.slice(0, THINKING_LINES);
+		// Ellipsis after the last visible character, inside the right padding column.
+		const last = shown[THINKING_LINES - 1]!.replace(TRAILING_SPACE, "$1");
+		const fitted = visibleWidth(last) <= width - 2 ? last : truncateToWidth(last, width - 2, "");
+		const ellipsis = activeTheme ? activeTheme.fg("thinkingText", "…") : "…";
+		shown[THINKING_LINES - 1] = fitted + ellipsis;
+		return shown;
+	}
+	handleMouse(event: { type: string; button?: string }): { handled: true } | undefined {
+		if (event.type !== "click" || event.button !== "left") return undefined;
+		const runs = expandedThinking.get(this.owner) ?? new Set<number>();
+		if (runs.has(this.run)) runs.delete(this.run); else runs.add(this.run);
+		expandedThinking.set(this.owner, runs);
+		return { handled: true };
+	}
+	invalidate(): void { this.markdown.invalidate(); }
+}
+
+function attachControls(markdown: Markdown): void {
+	latestSource = (markdown as unknown as { text: string }).text;
+	if (controls.has(markdown)) return;
+	attachMessageRendering(markdown as unknown as Parameters<typeof attachMessageRendering>[0], state, plainDivider);
+	controls.add(markdown);
+}
+
 function styleTextBlocks(component: AssistantInternals): void {
 	const children = component.contentContainer?.children ?? [];
+	let run = 0;
 	for (let index = 0; index < children.length; index++) {
 		let child = children[index];
-		// Pi wraps thinking Markdown in a click-to-collapse region. Keep it on the
-		// shared panel, not a disclosure, but keep Pi's italic, muted thinking style
-		// so it stays less salient than the reply.
+		if (child instanceof ThinkingFold) { run++; attachControls(child.markdown); continue; }
+		// Pi wraps thinking Markdown in a click-to-hide region. Replace it with a
+		// three-line fold: no panel, no padding rows, Pi's italic muted style.
 		const wrapped = child instanceof MouseRegion
 			? (child as unknown as { child?: unknown }).child : undefined;
 		if (wrapped instanceof Markdown) {
-			child = wrapped;
-			children[index] = child;
-			const markdown = child as unknown as MarkdownInternals;
+			const markdown = wrapped as unknown as MarkdownInternals;
 			markdown.defaultTextStyle = {
 				...markdown.defaultTextStyle,
 				italic: true,
 				color: (text: string) => activeTheme ? activeTheme.fg("thinkingText", text) : text,
 			};
+			markdown.paddingY = 0;
 			markdown.invalidate();
+			attachControls(wrapped);
+			children[index] = new ThinkingFold(wrapped, component, run++);
+			continue;
 		}
 		if (!(child instanceof Markdown)) continue;
 
-		latestSource = (child as unknown as { text: string }).text;
-		if (!controls.has(child)) {
-			attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], state, plainDivider);
-			controls.add(child);
-		}
+		attachControls(child);
 		const markdown = child as unknown as MarkdownInternals;
 		const layout = getLayout();
 		if (markdown[APPLIED_STYLE] === assistantBackground && markdown.paddingY === 1 && markdown[APPLIED_LAYOUT] === layout) continue;

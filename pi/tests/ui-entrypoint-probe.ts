@@ -34,7 +34,7 @@ function renderedTranscript() {
 	const result = [];
 	for (const width of [20, 80]) {
 		const assistant = new AssistantMessageComponent({ content: [
-			{ type: "thinking", thinking: "A **decision**." },
+			// Thinking deliberately diverges from the legacy panels (three-line fold).
 			{ type: "text", text: "A reply.\n\n```ts\nconst x = 1;\n```" },
 		], stopReason: "stop" }, true);
 		const user = new UserMessageComponent("A **prompt** with 日本語.");
