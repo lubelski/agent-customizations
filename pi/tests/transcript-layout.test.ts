@@ -40,13 +40,12 @@ test("thinking followed directly by a tool gets one stable separator", () => {
 	assert.deepEqual(stabilizeThinkingToolSpacing(["", "Thinking...", ""], layout), ["", "Thinking...", ""]);
 });
 
-test("thinking spacing is not added when prose already supplies it", () => {
-	const lines = ["", "Thinking...", "", "🬞🬭🬭🬏", "▐ ok ▌", "🬁🬂🬂🬀"];
-	assert.equal(stabilizeThinkingToolSpacing(lines, {
-		hasThinking: true,
-		hasProse: true,
-		hasToolCall: true,
-	}), lines);
+test("prose followed by a tool also gets one separator, but never two", () => {
+	const lines = ["", "🬞🬭🬭🬏", "▐ ok ▌", "🬁🬂🬂🬀"];
+	const layout = { hasThinking: false, hasProse: true, hasToolCall: true };
+	const spaced = stabilizeThinkingToolSpacing(lines, layout);
+	assert.deepEqual(spaced, [...lines, ""]);
+	assert.equal(stabilizeThinkingToolSpacing(spaced, layout), spaced);
 });
 
 test("thinking without a following tool is left alone", () => {

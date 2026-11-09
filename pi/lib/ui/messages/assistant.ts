@@ -95,17 +95,20 @@ function styleTextBlocks(component: AssistantInternals): void {
 	const children = component.contentContainer?.children ?? [];
 	for (let index = 0; index < children.length; index++) {
 		let child = children[index];
-		// Pi wraps thinking Markdown in a click-to-collapse region. Treat its text
-		// like ordinary prose, including selection/copy behavior, not a disclosure.
-		// Keep the actual thinking content and its Markdown transformer identity.
+		// Pi wraps thinking Markdown in a click-to-collapse region. Keep it on the
+		// shared panel, not a disclosure, but keep Pi's italic, muted thinking style
+		// so it stays less salient than the reply.
 		const wrapped = child instanceof MouseRegion
 			? (child as unknown as { child?: unknown }).child : undefined;
 		if (wrapped instanceof Markdown) {
 			child = wrapped;
-			const markdown = child as unknown as MarkdownInternals;
-			const { color: _color, italic: _italic, ...style } = markdown.defaultTextStyle ?? {};
-			markdown.defaultTextStyle = style;
 			children[index] = child;
+			const markdown = child as unknown as MarkdownInternals;
+			markdown.defaultTextStyle = {
+				...markdown.defaultTextStyle,
+				italic: true,
+				color: (text: string) => activeTheme ? activeTheme.fg("thinkingText", text) : text,
+			};
 			markdown.invalidate();
 		}
 		if (!(child instanceof Markdown)) continue;

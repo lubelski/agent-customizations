@@ -69,7 +69,7 @@ Settings are shared across projects and clients using that agent directory, not 
 
 ## Message appearance: `lib/ui/messages/`
 
-Gives assistant prose and thinking text matching adaptive neutral-gray panels. Dark and light themes receive different grays to preserve contrast. Compatible mode uses ordinary rectangular backgrounds and full-row space padding. Unicode mode uses the same half-cell sides and partial-height caps as the user-message treatment. Switching modes updates existing/cached messages as well as new and streaming messages, without changing stored messages or signatures. Thinking that leads directly into a tool gets the same separator spacing as thinking followed by prose.
+Gives assistant prose and thinking text matching adaptive neutral-gray panels. Dark and light themes receive different grays to preserve contrast. Compatible mode uses ordinary rectangular backgrounds and full-row space padding. Unicode mode uses the same half-cell sides and partial-height caps as the user-message treatment. Switching modes updates existing/cached messages as well as new and streaming messages, without changing stored messages or signatures. Any assistant message (thinking or prose) that leads directly into a tool gets one blank separator row, so every message/tool boundary has exactly one gap row.
 
 Pi does not expose a public renderer for built-in assistant messages. This experiment uses the current component structure: prose is a direct Markdown child, while thinking is wrapped separately. It should fail harmlessly if that structure changes.
 

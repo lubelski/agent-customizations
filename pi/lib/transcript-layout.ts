@@ -70,11 +70,11 @@ export function trimToolRulePadding(lines: string[], strip: StripTerminalSequenc
 }
 
 /**
- * Pi already separates thinking from following prose. It deliberately omits
- * that spacer before separately rendered tools, so add exactly one there.
+ * Pi omits the spacer between an assistant message and the separately rendered
+ * tools that follow it. Add exactly one so every message/tool boundary has one gap row.
  */
 export function stabilizeThinkingToolSpacing(lines: string[], layout: ThinkingLayout): string[] {
-	if (!layout.hasThinking || layout.hasProse || !layout.hasToolCall) return lines;
+	if (!(layout.hasThinking || layout.hasProse) || !layout.hasToolCall) return lines;
 	if (lines.length === 0 || lines.at(-1)?.trim() === "") return lines;
 	return [...lines, ""];
 }

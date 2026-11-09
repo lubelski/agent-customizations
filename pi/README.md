@@ -34,7 +34,7 @@ Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_C
 
 ## Thinking text
 
-Thinking content is shown inline using the same neutral-gray panels, normal text color, and Markdown typography as regular assistant prose. It streams in place, rather than appearing as an italic `Thinking...` disclosure. While this extension is loaded, Pi’s hide-thinking setting and click-to-collapse behavior do not hide these panels; no installed settings are rewritten. Explicit Markdown emphasis still renders normally.
+Thinking content is shown inline in the same neutral-gray panels as regular assistant prose, but in italics and the theme's muted `thinkingText` color so it reads as less salient than the reply. It streams in place, rather than appearing as a `Thinking...` disclosure. While this extension is loaded, Pi’s hide-thinking setting and click-to-collapse behavior do not hide these panels; no installed settings are rewritten. Explicit Markdown emphasis still renders normally.
 
 This is display-only: thinking blocks, signatures, and their `assistant-thinking` Markdown-transformer identity remain intact. Stored sessions and model context are unchanged. `/plain-text` and code-copy behavior apply to thinking panels too.
 
