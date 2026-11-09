@@ -164,21 +164,89 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
 type Elements = { Box: any; Text: any }
 
 /**
- * A panel: a fill inset one cell from each side of the row (the terminal's
+ * How a panel draws its spacing, from the `spacing` option (`/config`).
+ * `compat`: whole rows and cells only, so terminals and fonts without Block
+ * Elements draw it the same. `compact`: half-block caps and edges, which take
+ * half a row where `compat` takes a whole one.
+ */
+type Spacing = 'compat' | 'compact'
+let spacing: Spacing = 'compat'
+
+/** A panel in the `spacing` mode in use; `gap` is `gapAbove`, which compact ignores. */
+function panel(elements: Elements, color: string, body: unknown, gap: number) {
+  return spacing === 'compact' ? compactPanel(elements, color, body) : compatPanel(elements, color, body, gap)
+}
+
+/**
+ * Compat: a fill inset one cell from each side of the row (the terminal's
  * background shows there), with one cell of fill beside the text, one row of
  * fill above and below it (padding), and one blank row outside it (gap).
- * Whole rows only, no half blocks, so terminals and fonts without Block
- * Elements draw it the same. The panel takes its gap below, and above only
- * when the row before it is not a panel (gapAbove), so two panels in a row
- * share one blank row. A tool line or the turn line under a panel needs no
- * gap of its own.
+ * The panel takes its gap below, and above only when the row before it is
+ * not a panel (gapAbove), so two panels in a row share one blank row. A tool
+ * line or the turn line under a panel needs no gap of its own.
  */
-function panel({ Box }: Elements, color: string, body: unknown, gap: number) {
+function compatPanel({ Box }: Elements, color: string, body: unknown, gap: number) {
   return (
     <Box flexDirection="column" marginTop={gap} marginBottom={1}>
       <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
         {body}
       </Box>
+    </Box>
+  )
+}
+
+// Compact: a column of half blocks, taller than any panel. The outer Box's
+// overflow clips it to the panel's height: an absolute Box does not clip
+// itself.
+const LEFT_EDGE = '▐\n'.repeat(500)
+const RIGHT_EDGE = '▌\n'.repeat(500)
+
+// Compact: the panel's caps, half-height rows in the fill's color on the
+// terminal's own background, in place of a full padding row. The top cap
+// fills the lower half of its row, the bottom cap the upper half; each corner
+// is the quadrant where a cap meets a side edge. The fill is wider than any
+// panel and wraps; its Box is one row high and clips the rest.
+const TOP_CAP = { left: '▗', fill: '▄'.repeat(500), right: '▖' }
+const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
+
+function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fill: string; right: string }) {
+  return (
+    <Box height={1} overflow="hidden">
+      <Text color={color}>{glyphs.left}</Text>
+      <Box flexGrow={1} flexShrink={1} height={1} overflow="hidden">
+        <Text color={color}>{glyphs.fill}</Text>
+      </Box>
+      <Text color={color}>{glyphs.right}</Text>
+    </Box>
+  )
+}
+
+/**
+ * Compact: pi's half-bleed panel, a fill inset one cell with half-block ends
+ * in the fill's color, capped above and below by a half-height row. The caps
+ * are the panel's whole spacing: it takes no blank row above or below. Two
+ * panels in a row leave one row of the terminal's background between their
+ * fills, and a tool line sits half a row from a fill.
+ */
+function compactPanel(elements: Elements, color: string, body: unknown) {
+  const { Box, Text } = elements
+  // The bottom cap sits outside the clipping Box: the edge columns run past
+  // their own Box's bottom, and only the parent's overflow cuts them off.
+  return (
+    <Box flexDirection="column">
+      <Box flexDirection="column" overflow="hidden">
+        {cap(elements, color, TOP_CAP)}
+        <Box backgroundColor={color} marginX={1} paddingX={1} flexDirection="column">
+          {body}
+        </Box>
+        <Box position="absolute" left={0} top={1} bottom={0} width={1}>
+          <Text color={color}>{LEFT_EDGE}</Text>
+        </Box>
+        <Box position="absolute" right={0} top={1} bottom={0} width={1}>
+          <Text color={color}>{RIGHT_EDGE}</Text>
+        </Box>
+      </Box>
+      {cap(elements, color, BOTTOM_CAP)}
     </Box>
   )
 }
@@ -374,7 +442,9 @@ function holdsEngine(node: unknown): boolean {
 }
 
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  spacing = options.spacing === 'compact' ? 'compact' : 'compat'
+
   // The palette follows the theme: read at start and on every reload, again
   // when the person changes the theme, and every few seconds for `auto`.
   on('session.start', async ($, e, next) => {
@@ -446,7 +516,7 @@ export const register: Register = on => {
 
   // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the
   // engine's, drawn with a blank row above it and a `✻` glyph. The panel's
-  // gap below already leaves a blank row, so the mod draws the line itself:
+  // spacing already leaves room above it, so the mod draws the line itself:
   // dim, a `·` where a tool line has its `›`, text aligned with it, no blank row. The engine
   // keeps a line that waits on background agents.
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
