@@ -5,6 +5,8 @@ declare module 'claude-code' {
       revealed: Shaped<Record<string, boolean>>
       /** The palette in use: light or dark, from the theme setting. */
       scheme: Shaped<'light' | 'dark'>
+      /** Narration rows (text written ahead of a tool call), by row uuid. */
+      narration: Shaped<Record<string, true>>
     }
   }
 }

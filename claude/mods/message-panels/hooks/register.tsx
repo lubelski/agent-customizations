@@ -70,6 +70,52 @@ async function palette($: EngineInterface): Promise<Palette> {
 
 const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {} as Record<string, boolean>, { shape: 'revealed-1' })
 
+// Narration: text the model wrote in a turn ahead of a tool call, as opposed
+// to the reply that ends the turn. `AssistantMessage` does not say which a
+// block is, so `session.append` watches the response rows: text rows wait in
+// `pendingText`, and a tool_use row after them marks them narration. Keyed by
+// the row's `uuid`, which is the `requestId` its render carries. Rows a
+// `--resume` loads are never appended, so their narration draws as a reply.
+const narration = atom({ plugin: 'message-panels', key: 'narration' } as const, {} as Record<string, true>, { shape: 'narration-1' })
+let pendingText: string[] = []
+
+// Narration and summary rows show this many lines, the last cut with `…`.
+const ASIDE_LINES = 3
+// Cells the row loses to the engine's bullet column and the panel's margins
+// and padding.
+const ASIDE_INSET = 6
+
+/** Markdown reduced to plain words for a one-style line: markers dropped. */
+function plainWords(markdown: string): string {
+  return oneLine(
+    markdown
+      .replace(/```[^\n]*\n?/g, ' ')
+      .replace(/^\s{0,3}(#{1,6}|[-*+]|\d+\.)\s+/gm, '')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*|__|`/g, ''),
+  )
+}
+
+/** Words wrapped to `width` cells, at most `max` lines, the last ending in `…` when cut. */
+function clampLines(text: string, width: number, max: number): string[] {
+  const lines: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    if (!line) line = word
+    else if (line.length + 1 + word.length <= width) line += ` ${word}`
+    else {
+      lines.push(line)
+      line = word
+      if (lines.length === max) break
+    }
+  }
+  if (lines.length < max && line) return [...lines, line]
+  const last = lines[max - 1]
+  const room = Math.max(1, width - 1)
+  lines[max - 1] = (last.length > room ? last.slice(0, room) : last).trimEnd() + '…'
+  return lines
+}
+
 async function toggleRevealed($: EngineInterface, id: string): Promise<void> {
   await update($, revealed, held => ({ ...held, [id]: !held[id] }))
 }
@@ -341,19 +387,46 @@ export const register: Register = on => {
     return result
   })
 
+  // Marks narration (see `narration`). Only the main conversation's rows count.
+  on('session.append', async ($, e, next) => {
+    const result = await next(e)
+    if (e.agentId) return result
+    if (e.door === 'prompt') pendingText = []
+    if (e.door !== 'response') return result
+    if (e.message.content.some(b => b.type === 'text' && typeof b.text === 'string' && b.text.trim())) pendingText.push(e.uuid)
+    if (e.message.content.some(b => b.type === 'tool_use') && pendingText.length) {
+      const marked = pendingText
+      pendingText = []
+      await update($, narration, held => ({ ...held, ...Object.fromEntries(marked.map(t => [t, true as const])) }))
+    }
+    return result
+  })
+
   // The body is another mod's tree where one beneath drew one (code-brackets),
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
-  // (text between tool calls, condensed) draws the same way; it loses the
-  // engine's faint `· summary` mark, so it carries a `summary` tag of its own in
-// the top padding row; ctrl+o still shows the full text.
+  // (text between tool calls, condensed) and narration draw as an aside: plain
+  // words, dim and italic, at most 3 lines. ctrl+o still shows the full text.
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
     const colors = await palette($)
+    const aside = e.props.isSummary || (await read($, narration))[e.requestId]
+    if (aside) {
+      const width = Math.max(20, (e.viewport?.columns ?? 80) - ASIDE_INSET)
+      const lines = clampLines(plainWords(e.props.text), width, ASIDE_LINES)
+      const body = (
+        <elements.Box flexDirection="column">
+          {lines.map((line, i) => (
+            <elements.Text key={String(i)} dimColor italic wrap="truncate-end">{line}</elements.Text>
+          ))}
+        </elements.Box>
+      )
+      return panel(elements, colors.assistant, colors.tag, body)
+    }
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, colors.assistant, colors.tag, body, e.props.isSummary ? 'summary' : undefined)
+    return panel(elements, colors.assistant, colors.tag, body)
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
