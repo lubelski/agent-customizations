@@ -43,7 +43,7 @@ test("compatible panels avoid block glyphs and switch existing/cached/streaming 
 						assert.doesNotMatch(plain, specialEdges);
 						// One uncolored gap column outside the panel on each side.
 						if (width >= 3) for (const line of second) {
-							assert.ok(line.startsWith("\x1b[49m ") || line.includes("\x07\x1b[49m "), JSON.stringify(line));
+							assert.match(line, /^(?:\x1b\][^\x07]*\x07)*\x1b\[49m /, "OSC markers stay at column 0, then the gap");
 							assert.ok(line.endsWith("\x1b[49m "), JSON.stringify(line));
 						}
 					}
