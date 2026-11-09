@@ -164,8 +164,9 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
 type Elements = { Box: any; Text: any }
 
 /**
- * A panel: a full-width fill with one row of fill above and below the text
- * (padding) and one blank row of the terminal's background outside it (gap).
+ * A panel: a fill inset one cell from each side of the row (the terminal's
+ * background shows there), with one cell of fill beside the text, one row of
+ * fill above and below it (padding), and one blank row outside it (gap).
  * Whole rows only, no half blocks, so terminals and fonts without Block
  * Elements draw it the same. The panel takes its gap below, and above only
  * when the row before it is not a panel (gapAbove), so two panels in a row
@@ -175,7 +176,7 @@ type Elements = { Box: any; Text: any }
 function panel({ Box }: Elements, color: string, body: unknown, gap: number) {
   return (
     <Box flexDirection="column" marginTop={gap} marginBottom={1}>
-      <Box backgroundColor={color} paddingX={2} paddingY={1} flexDirection="column">
+      <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
         {body}
       </Box>
     </Box>
