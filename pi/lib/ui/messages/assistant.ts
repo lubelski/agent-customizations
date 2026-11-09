@@ -22,6 +22,7 @@ import {
 } from "../../transcript-layout.ts";
 
 import { attachMessageRendering, codeBlocks, type MessageControlState } from "../../message-controls.ts";
+import { THINKING_MARK } from "./gaps.ts";
 import type { MessageLayout } from "../settings.ts";
 
 const controls = new WeakSet<object>();
@@ -105,14 +106,15 @@ class ThinkingFold {
 	get expanded(): boolean { return expandedThinking.get(this.owner)?.has(this.run) ?? false; }
 	render(width: number): string[] {
 		const lines = this.markdown.render(width);
-		if (state.plain || this.expanded || lines.length <= THINKING_LINES) return lines;
+		if (state.plain) return lines;
+		if (this.expanded || lines.length <= THINKING_LINES) return lines.map(line => THINKING_MARK + line);
 		const shown = lines.slice(0, THINKING_LINES);
 		// Ellipsis after the last visible character, inside the right padding column.
 		const last = shown[THINKING_LINES - 1]!.replace(TRAILING_SPACE, "$1");
 		const fitted = visibleWidth(last) <= width - 2 ? last : truncateToWidth(last, width - 2, "");
 		const ellipsis = activeTheme ? activeTheme.fg("thinkingText", "…") : "…";
 		shown[THINKING_LINES - 1] = fitted + ellipsis;
-		return shown;
+		return shown.map(line => THINKING_MARK + line);
 	}
 	handleMouse(event: { type: string; button?: string }): { handled: true } | undefined {
 		if (event.type !== "click" || event.button !== "left") return undefined;
@@ -128,6 +130,10 @@ function attachControls(markdown: Markdown): void {
 	latestSource = (markdown as unknown as { text: string }).text;
 	if (controls.has(markdown)) return;
 	attachMessageRendering(markdown as unknown as Parameters<typeof attachMessageRendering>[0], state, plainDivider);
+	// Cap here, not only at the message level, so gaps inside the message can collapse.
+	const render = markdown.render.bind(markdown);
+	markdown.render = width => getLayout() === "unicode" && !state.plain
+		? capPanelRows(render(width), stripTerminalSequences, visibleWidth) : render(width);
 	controls.add(markdown);
 }
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { jiti, tuiModule } from "./pi-runtime.ts";
 
-const { collapsePanelGaps, installGapCollapse } = await jiti.import("../lib/ui/messages/gaps.ts");
+const { collapsePanelGaps, installGapCollapse, THINKING_MARK } = await jiti.import("../lib/ui/messages/gaps.ts");
 const top = " 🬭🬭🬭 ", bottom = " 🬂🬂🬂 ";
 
 test("blank rows between abutting panels collapse only across component edges", () => {
@@ -34,4 +34,15 @@ test("container collapse keeps mouse rows aligned and is switchable", () => {
 	assert.equal(container.render(5).length, 8);
 	installGapCollapse(() => enabled);
 	assert.equal(container.render(5).length, 8, "reinstall does not stack");
+});
+
+test("thinking rows abut panels on either side, but not each other or tools", () => {
+	const think = `${THINKING_MARK}  hmm`;
+	const parts = [[top, " a   ", bottom], [""], [think, think], [""], [top, " b   ", bottom], ["", think], [""], [think], ["", "› tool"]];
+	collapsePanelGaps(parts);
+	assert.deepEqual(parts, [[top, " a   ", bottom], [], [think, think], [], [top, " b   ", bottom], [think], [""], [think], ["", "› tool"]]);
+	// Caps before the message gutter is added (inside the message's own container).
+	const inner = [["🬂🬂🬂"], [""], ["🬭🬭🬭"]];
+	collapsePanelGaps(inner);
+	assert.deepEqual(inner, [["🬂🬂🬂"], [], ["🬭🬭🬭"]]);
 });
