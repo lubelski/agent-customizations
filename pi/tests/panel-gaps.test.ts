@@ -50,3 +50,21 @@ test("thinking rows abut panels on either side, but keep gaps from each other an
 	collapsePanelGaps(inner);
 	assert.deepEqual(inner, [["🬂🬂🬂"], [], ["🬭🬭🬭"]]);
 });
+
+test("Pi's transcript notices are indented one more column, in both modes", async () => {
+	let enabled = false;
+	installGapCollapse(() => enabled);
+	class ThemedText extends tuiModule.Text {}
+	const container = new tuiModule.Container();
+	container.addChild(new ThemedText("Reloaded keybindings", 1, 0));
+	container.addChild(new tuiModule.Text("other text", 1, 0));
+	container.addChild(new ThemedText("unpadded", 0, 0));
+	for (const mode of [false, true]) {
+		enabled = mode;
+		const lines = container.render(30).map(tuiModule.stripTerminalSequences);
+		assert.ok(lines[0].startsWith("  Reloaded"));
+		assert.ok(lines[1].startsWith(" other"), "only Pi's ThemedText notices move");
+		assert.ok(lines[2].startsWith("unpadded"));
+		assert.ok(container.render(30).every(line => tuiModule.visibleWidth(line) <= 30));
+	}
+});
