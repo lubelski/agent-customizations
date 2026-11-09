@@ -17,6 +17,41 @@ export function renderWithGutter(render: (width: number) => string[], width: num
 	});
 }
 
+const LEADING_MARKERS = /^(?:\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))*/;
+const LEADING_BACKGROUND = /^\x1b\[48;((?:2;\d+;\d+;\d+)|(?:5;\d+))m/;
+
+/**
+ * Square panels with thin caps: within each run of background-filled rows, a
+ * blank first or last row becomes a one-third-height bar in the panel color.
+ * Side edges stay whole columns; only the top and bottom padding shrink.
+ */
+export function capPanelRows(lines: string[], strip: StripTerminalSequences, visibleWidth: VisibleWidth): string[] {
+	const result = [...lines];
+	const background = (line: string) => {
+		const marker = LEADING_MARKERS.exec(line)![0];
+		return LEADING_BACKGROUND.exec(line.slice(marker.length))?.[1];
+	};
+	const cap = (index: number, fill: string) => {
+		const line = result[index]!;
+		const plain = strip(line);
+		const color = background(line);
+		if (!color || plain.trim() !== "") return;
+		const marker = LEADING_MARKERS.exec(line)![0];
+		result[index] = `${marker}\x1b[49m\x1b[38;${color}m${fill.repeat(visibleWidth(plain))}\x1b[39m`;
+	};
+	for (let start = 0; start < result.length;) {
+		if (!background(result[start]!)) { start++; continue; }
+		let end = start;
+		while (end + 1 < result.length && background(result[end + 1]!)) end++;
+		if (end > start) {
+			cap(start, "🬭");
+			cap(end, "🬂");
+		}
+		start = end + 1;
+	}
+	return result;
+}
+
 export type ThinkingLayout = {
 	hasThinking: boolean;
 	hasProse: boolean;

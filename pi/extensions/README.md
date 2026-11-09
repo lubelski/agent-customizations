@@ -35,7 +35,7 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing tools and commands are preserved. Message panels use half-block and sextant glyphs for their padding and gaps by default. Font compatibility swaps those for whole blank rows and columns, which take more space but render in any font. Tool rows are indented one column to share the panels' left edge. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
+Existing tools and commands are preserved. Message panels sit one uncolored gap column in from each side and keep one column of padding inside. Their top and bottom padding are thin sextant caps by default; font compatibility swaps those for whole blank rows, which take more space but render in any font. Tool rows are indented one column to share the panels' left edge. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
 ### Options
 
@@ -45,7 +45,7 @@ Three independent options, each off by default and flipped by its own command:
 |---|---|---|
 | `/ui-toggle-compact-header` | `compactHeader` | Header drops its top rule: two rows instead of three |
 | `/ui-toggle-compact-footer` | `compactFooter` | Footer collapses to three rows instead of seven |
-| `/ui-toggle-font-compat` | `fontCompat` | Panels use whole-row padding and gaps instead of half-block glyphs |
+| `/ui-toggle-font-compat` | `fontCompat` | Panels use whole blank top/bottom padding rows instead of thin sextant caps |
 
 Changes apply immediately. Commands take no arguments and require interactive mode; header rendering applies only in supported fullscreen layouts.
 
@@ -82,17 +82,16 @@ Pi has no public fence-layout setting, so this uses a guarded, reload-safe token
 
 ## Message panel edges: `lib/ui/messages/panels.ts`
 
-In Unicode mode, shapes transcript panels without changing their terminal-cell layout:
+Shapes transcript panels:
 
-- user and custom messages retain their filled backgrounds with half-cell side edges;
-- their top and bottom caps occupy one third of a row;
-- their corner cells use individual sextants for exact square intersections;
+- user, custom and assistant panels sit one gap column in from each side, with one column of padding inside, so sides are whole cells;
+- by default their top and bottom padding rows become square caps one third of a row tall;
 - tool panels lose their filled background and right edge, leaving one thin, very low-contrast left rule;
 - the tool rule starts and ends with rendered tool content rather than extending through box padding;
 - Pi's standalone pre-tool separator is removed to tighten the transition from assistant prose;
 - tool errors use an error-colored left rule.
 
-The Unicode side edges use Block Elements. Its caps and corners require Symbols for Legacy Computing sextants. Compatible mode avoids both, retaining ordinary filled backgrounds and space padding for user/custom/assistant/thinking panels. Tool rules and disclosure remain the same in both modes. `/plain-text` is still a separate session-local view, not a font-compatibility setting.
+The caps require Symbols for Legacy Computing sextants. Font compatibility avoids them, keeping whole blank padding rows. Tool rules and disclosure remain the same in both modes. `/plain-text` is still a separate session-local view, not a font-compatibility setting.
 
 ## Native cursor (built into Pi 1.2)
 

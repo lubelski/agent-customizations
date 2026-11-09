@@ -21,9 +21,15 @@ for (const order of ["ui-first", "legacy-first"]) {
 	});
 }
 
-test("unified Unicode layout preserves the legacy transcript", () => {
+test("unified panels have whole-column sides and thin caps; legacy keeps half-block edges", () => {
 	assert.ok(transcripts.has("ui-first") && transcripts.has("legacy-first"));
-	assert.deepEqual(transcripts.get("ui-first"), transcripts.get("legacy-first"));
+	const ui = transcripts.get("ui-first").flat();
+	const legacy = transcripts.get("legacy-first").flat();
+	assert.doesNotMatch(ui.join("\n"), /[▐▌🬞🬏🬁🬀]/u, "no half-block sides or chamfered corners");
+	assert.ok(ui.filter(line => /^ 🬭+ $/u.test(line)).length >= 2, "top caps sit inside one gap column");
+	assert.ok(ui.filter(line => /^ 🬂+ $/u.test(line)).length >= 2);
+	assert.ok(ui.some(line => line.startsWith("  A prompt")), "gap column, then padding column");
+	assert.ok(legacy.some(line => line.startsWith("▐")));
 });
 
 test("package exposes only UI and rename, preserving package identity and theme", () => {

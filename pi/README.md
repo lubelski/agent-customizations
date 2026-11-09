@@ -26,10 +26,10 @@ Three independent toggles, all off by default and saved to `ui.json`:
 ```text
 /ui-toggle-compact-header     Two-row header without the top rule
 /ui-toggle-compact-footer     Three-row footer instead of seven
-/ui-toggle-font-compat        Whole-row padding and gaps instead of half-block glyphs
+/ui-toggle-font-compat        Whole blank top/bottom padding rows instead of thin sextant caps
 ```
 
-Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_CODING_AGENT_DIR`). The compact header/footer reclaim **five rows** together. Compatible message panels use spaces and rectangular backgrounds instead of unsupported block/sextant glyphs; they are not an ASCII-only mode for the entire UI. Settings are shared by clients using the same Pi agent directory. Presets save individual values, so subsequent overrides persist too.
+Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_CODING_AGENT_DIR`). The compact header/footer reclaim **five rows** together. Message panels always sit one gap column in from each side, with one column of padding inside; font compatibility only replaces the thin sextant caps with whole blank rows. It is not an ASCII-only mode for the entire UI. Settings are shared by clients using the same Pi agent directory.
 
 ## Thinking text
 
