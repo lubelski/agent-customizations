@@ -29,7 +29,7 @@ These held on Claude Code 2.1.317.
 
 - **`next(e)` in a `ui.render` hook** resolves to the tree beneath. For an unhooked component, that tree is `{ type: 'engine', ref }`, Claude Code's own drawing.
 - **An engine node may not sit under a `Box` with `overflow`.** The hook is skipped with `engine node under a Box with prop "overflow"`. Draw the content yourself (for example, `Markdown` from `e.props.text`) where a clipping box is needed.
-- **An absolutely positioned `Box` does not clip itself**, even with `top`, `bottom` and `overflow="hidden"`. Clip it with `overflow="hidden"` on its parent. The half-block panel edges and the code rule depend on this.
+- **An absolutely positioned `Box` does not clip itself**, even with `top`, `bottom` and `overflow="hidden"`. Clip it with `overflow="hidden"` on its parent. The code rule depends on this.
 - **Claude Code's rows paint their own backgrounds.** The user prompt row paints gray behind its text, so wrapping it in a colored `Box` shows two colors. Draw the row from `e.props.text` instead.
 - **`$.session.messages()` lags a streaming reply.** A tool row drawn while its reply streams is not in the list yet. Treat an unlisted call as coming after everything listed.
 - **A function that receives `$` must be a top-level function declaration** in the module, or one imported from the mod's own files. `claude plugin validate` refuses a closure inside `register` that takes `$`.
@@ -48,5 +48,8 @@ These held on Claude Code 2.1.317.
 A new mod on the same component should follow the same rules.
 
 ## Style
+
+Draw spacing with whole rows and cells (padding and margins), not half-block or other Block Elements glyphs, so older terminals and mobile terminals draw it correctly.
+
 
 Colors are raw hex values in a warm palette near Claude's orange (`#d97757`), muted for fills. They are constants at the top of each `register.tsx`. `message-panels` keeps a light and a dark palette and picks one from the `theme` setting. For `auto`, it reads the macOS appearance, since the mod API does not expose the terminal background. Each mod draws for `e.surface === 'terminal'` only and returns `next(e)` elsewhere.

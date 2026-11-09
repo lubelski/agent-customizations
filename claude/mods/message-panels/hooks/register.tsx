@@ -5,7 +5,7 @@ import type { PathContext } from './paths'
 
 // Warm palettes near Claude's orange (#d97757), muted for panel fills.
 // Assistant: warm gray. User: orange-brown, pale in the light palette.
-// Edges use the fill colors. `userText` is the user panel's text, which the
+// `userText` is the user panel's text, which the
 // mod draws itself; the assistant panel's text is the engine's Markdown, in
 // the theme's own text color.
 type Scheme = 'light' | 'dark'
@@ -72,8 +72,7 @@ const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {}
 
 // Summary rows show this many lines, the last cut with `…`.
 const ASIDE_LINES = 3
-// Cells the row loses to the engine's bullet column and the panel's margins
-// and padding.
+// Cells the row loses to the engine's bullet column and the panel's padding.
 const ASIDE_INSET = 6
 
 /** Markdown reduced to plain words for a one-style line: markers dropped. */
@@ -162,67 +161,80 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
   return { cwd, home }
 }
 
-// A column of half blocks, taller than any panel. The outer Box's overflow
-// clips it to the panel's height: an absolute Box does not clip itself.
-const LEFT_EDGE = '▐\n'.repeat(500)
-const RIGHT_EDGE = '▌\n'.repeat(500)
-
-// The panel's caps: half-height rows in the fill's color on the terminal's
-// own background, in place of a full blank padding row. The top cap fills the
-// lower half of its row, the bottom cap the upper half; each corner is the
-// quadrant where a cap meets a side edge. The fill is wider than any panel
-// and wraps; its Box is one row high and clips the rest (Block Elements, so
-// any terminal font has them; pi's sextant caps are one third of a row).
-const TOP_CAP = { left: '▗', fill: '▄'.repeat(500), right: '▖' }
-const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
-
 type Elements = { Box: any; Text: any }
 
-function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fill: string; right: string }) {
+/**
+ * A panel: a full-width fill with one row of fill above and below the text
+ * (padding) and one blank row of the terminal's background outside it (gap).
+ * Whole rows only, no half blocks, so terminals and fonts without Block
+ * Elements draw it the same. The panel takes its gap below, and above only
+ * when the row before it is not a panel (gapAbove), so two panels in a row
+ * share one blank row. A tool line or the turn line under a panel needs no
+ * gap of its own.
+ */
+function panel({ Box }: Elements, color: string, body: unknown, gap: number) {
   return (
-    <Box height={1} overflow="hidden">
-      <Text color={color}>{glyphs.left}</Text>
-      <Box flexGrow={1} flexShrink={1} height={1} overflow="hidden">
-        <Text color={color}>{glyphs.fill}</Text>
+    <Box flexDirection="column" marginTop={gap} marginBottom={1}>
+      <Box backgroundColor={color} paddingX={2} paddingY={1} flexDirection="column">
+        {body}
       </Box>
-      <Text color={color}>{glyphs.right}</Text>
     </Box>
   )
 }
 
-/**
- * pi's half-bleed panel: a fill inset one cell, with half-block ends in the
- * fill's color, capped above and below by a half-height row. The caps are the
- * panel's whole spacing: it takes no blank row above or below. Two panels in
- * a row leave one row of the terminal's background between their fills, and a
- * tool line or Claude Code's own rows sit half a row from a fill.
- */
-function panel(elements: Elements, color: string, tagColor: string, body: unknown, tag?: string) {
-  const { Box, Text } = elements
-  // The bottom cap sits outside the clipping Box: the edge columns run past
-  // their own Box's bottom, and only the parent's overflow cuts them off.
-  return (
-    <Box flexDirection="column">
-      <Box flexDirection="column" overflow="hidden">
-        {cap(elements, color, TOP_CAP)}
-        <Box backgroundColor={color} marginX={1} paddingX={1} flexDirection="column">
-          {body}
-        </Box>
-        <Box position="absolute" left={0} top={1} bottom={0} width={1}>
-          <Text color={color}>{LEFT_EDGE}</Text>
-        </Box>
-        <Box position="absolute" right={0} top={1} bottom={0} width={1}>
-          <Text color={color}>{RIGHT_EDGE}</Text>
-        </Box>
-        {tag ? (
-          <Box position="absolute" right={3} top={0}>
-            <Text color={tagColor}> {tag} </Text>
-          </Box>
-        ) : null}
-      </Box>
-      {cap(elements, color, BOTTOM_CAP)}
-    </Box>
-  )
+/** What a stored row draws in the transcript: a panel, or a line of anything else. */
+type RowKind = 'panel' | 'line'
+
+// The kind of the visible row before each message row, by the row's uuid,
+// which is the `requestId` the row renders under; and the kind of the last
+// visible row stored, for a prompt still drawn under `placeholder` before its
+// row is appended. Rows a `--resume` loads are never appended, so they are
+// absent and take a gap above.
+const rowBefore = new Map<string, RowKind>()
+let lastRow: RowKind = 'line'
+
+// Doors whose rows draw nothing: the engine's injected context, a tool's
+// result (the ToolUse row above draws it), a queue record.
+const HIDDEN_DOORS = new Set(['attachment', 'hook-context', 'tool-result', 'queue'])
+
+type StoredRow = {
+  door: string
+  uuid: string
+  origin: { kind: string }
+  message: { isMeta?: true; content: ReadonlyArray<{ type: string; text?: unknown }> }
+}
+
+/** The kinds of the visible rows a stored row draws, in order; none for a hidden row. */
+function rowKinds(row: StoredRow): RowKind[] {
+  if (HIDDEN_DOORS.has(row.door) || row.message.isMeta) return []
+  const blocks = row.message.content
+  if (row.door === 'prompt') {
+    const text = blocks.map(b => (typeof b.text === 'string' ? b.text : '')).join('\n')
+    return [row.origin.kind === 'composer' && commandEcho({ text }) === null ? 'panel' : 'line']
+  }
+  if (row.door === 'response') {
+    const kinds: RowKind[] = []
+    for (const block of blocks) {
+      if (block.type === 'text' && typeof block.text === 'string' && block.text.trim()) kinds.push('panel')
+      if (block.type === 'tool_use') kinds.push('line')
+    }
+    return kinds
+  }
+  return ['line']
+}
+
+/** Records a stored row's place among the visible rows. */
+function noteRow(row: StoredRow): void {
+  const last = rowKinds(row).at(-1)
+  if (!last) return
+  rowBefore.set(row.uuid, lastRow)
+  lastRow = last
+}
+
+/** No gap above a panel that follows another panel, whose gap below is enough; one otherwise. */
+function gapAbove(requestId: string): number {
+  const before = rowBefore.get(requestId) ?? (requestId === 'placeholder' ? lastRow : 'line')
+  return before === 'panel' ? 0 : 1
 }
 
 /**
@@ -378,6 +390,13 @@ export const register: Register = on => {
     return result
   })
 
+  // Every row the conversation keeps passes here before it is stored, so a
+  // message row finds its place in the table by the time it draws.
+  on('session.append', async ($, e, next) => {
+    noteRow(e)
+    return next(e)
+  })
+
   // The body is another mod's tree where one beneath drew one (code-brackets),
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
@@ -397,11 +416,11 @@ export const register: Register = on => {
           ))}
         </elements.Box>
       )
-      return panel(elements, colors.assistant, colors.tag, body)
+      return panel(elements, colors.assistant, body, gapAbove(e.requestId))
     }
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, colors.assistant, colors.tag, body)
+    return panel(elements, colors.assistant, body, gapAbove(e.requestId))
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
@@ -421,12 +440,12 @@ export const register: Register = on => {
     }
     if (e.props.origin.kind !== 'composer') return next(e)
     const colors = await palette($)
-    return panel(elements, colors.user, colors.tag, <elements.Text color={colors.userText}>{e.props.text}</elements.Text>)
+    return panel(elements, colors.user, <elements.Text color={colors.userText}>{e.props.text}</elements.Text>, gapAbove(e.requestId))
   })
 
   // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the
   // engine's, drawn with a blank row above it and a `✻` glyph. The panel's
-  // bottom cap already leaves half a row, so the mod draws the line itself:
+  // gap below already leaves a blank row, so the mod draws the line itself:
   // dim, a `·` where a tool line has its `›`, text aligned with it, no blank row. The engine
   // keeps a line that waits on background agents.
   on('ui.render', { component: 'TurnDuration' }, async ($, e, next) => {
