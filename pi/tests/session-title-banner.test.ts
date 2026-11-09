@@ -12,10 +12,12 @@ test("title bar reserves a title between matching divider rows and restores the 
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const settingsPath = join(dir, "ui.json");
 	const { default: installHeader, renderTitleBanner } = await jiti.import("../lib/ui/header.ts");
+	const { default: installCommands } = await jiti.import("../lib/ui/commands.ts");
 	const extension = (api) => {
 		const settings = new UiSettingsStore(settingsPath);
 		settings.reload();
 		installHeader(api, settings);
+		installCommands(api, settings);
 	};
 	const { getThemeByName } = themeModule;
 	const { renderLayoutFrame } = layoutModule;
@@ -85,11 +87,9 @@ test("title bar reserves a title between matching divider rows and restores the 
 	// Toggle changes both rendering and layout allocation, and a fresh extension loads the saved preference.
 	ctx.ui.notify = () => {};
 	handlers.get("session_start")({}, ctx);
-	const command = commands.get("header-bar");
-	assert.deepEqual(command.getArgumentCompletions("o").map((item) => item.value), ["on", "off"]);
-	assert.equal(command.getArgumentCompletions("bad"), null);
-	await command.handler("off", ctx);
-	assert.equal(JSON.parse(readFileSync(settingsPath, "utf8")).header.showTopBar, false);
+	const toggle = () => commands.get("ui-toggle-compact-header").handler("", ctx);
+	await toggle();
+	assert.equal(JSON.parse(readFileSync(settingsPath, "utf8")).compactHeader, true);
 	for (const width of [1, 6, 20, 80]) {
 		const frame = renderLayoutFrame(tui.layoutRoot, width, 24, () => {});
 		assert.equal(frame.lines[0], renderTitleBanner(title, width, theme, "/project", "29k / 272k - 10.7%", false)[0]);
@@ -99,15 +99,15 @@ test("title bar reserves a title between matching divider rows and restores the 
 	extension(api);
 	handlers.get("session_start")({}, ctx);
 	assert.match(stripTerminalSequences(renderLayoutFrame(tui.layoutRoot, 80, 24, () => {}).lines[0]), /Renamed/);
-	await commands.get("header-bar").handler("", ctx);
-	assert.equal(loadUiSettings(settingsPath).header.showTopBar, true);
-	await commands.get("header-bar").handler("off", ctx);
-	await commands.get("header-bar").handler("on", ctx);
-	await commands.get("header-bar").handler("invalid", ctx);
-	assert.equal(loadUiSettings(settingsPath).header.showTopBar, true);
+	await toggle();
+	assert.equal(loadUiSettings(settingsPath).compactHeader, false);
+	await toggle();
+	await toggle();
+	await commands.get("ui-toggle-compact-header").handler("invalid", ctx);
+	assert.equal(loadUiSettings(settingsPath).compactHeader, false);
 	// Failed saves leave the active layout unchanged and preserve the bad file.
 	writeFileSync(settingsPath, "broken");
-	await commands.get("header-bar").handler("off", ctx);
+	await toggle();
 	assert.equal(stripTerminalSequences(renderLayoutFrame(tui.layoutRoot, 80, 24, () => {}).lines[0]), "─".repeat(80));
 	handlers.get("session_shutdown")({}, ctx);
 	rmSync(settingsPath);

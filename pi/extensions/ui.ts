@@ -23,7 +23,7 @@ export default function ui(pi: ExtensionAPI): void {
 	installUiCommands(pi, settings);
 	installMessages(pi, settings);
 	installCode(pi);
-	installTools(pi, () => settings.current.messages.layout === "compatible");
+	installTools(pi, () => settings.current.fontCompat);
 	installHeader(pi, settings);
 	installFooter(pi, settings);
 }

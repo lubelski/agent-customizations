@@ -3,14 +3,11 @@ import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
 export type MessageLayout = "compatible" | "unicode";
-export type UiPreset = "compact" | "mobile" | "desktop";
-export type UiSettings = {
-	header: { showTopBar: boolean };
-	footer: { compact: boolean };
-	messages: { layout: MessageLayout };
-};
-export type UiSettingsPatch = { [K in keyof UiSettings]?: Partial<UiSettings[K]> };
-const defaults = (): UiSettings => ({ header: { showTopBar: true }, footer: { compact: false }, messages: { layout: "compatible" } });
+/** Three independent preferences, all off by default. */
+export type UiSettings = { compactHeader: boolean; compactFooter: boolean; fontCompat: boolean };
+export type UiSetting = keyof UiSettings;
+export const UI_SETTINGS: readonly UiSetting[] = ["compactHeader", "compactFooter", "fontCompat"];
+const defaults = (): UiSettings => ({ compactHeader: false, compactFooter: false, fontCompat: false });
 
 function object(value: unknown, label: string): Record<string, unknown> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -29,32 +26,22 @@ function readSettings(path: string): Record<string, unknown> {
 }
 
 function parseSettings(data: Record<string, unknown>): UiSettings {
-	const header = data.header === undefined ? {} : object(data.header, "header");
-	const footer = data.footer === undefined ? {} : object(data.footer, "footer");
-	const messages = data.messages === undefined ? {} : object(data.messages, "messages");
-	if (header.showTopBar !== undefined && typeof header.showTopBar !== "boolean") throw new Error("header.showTopBar must be a boolean");
-	if (footer.compact !== undefined && typeof footer.compact !== "boolean") throw new Error("footer.compact must be a boolean");
-	if (messages.layout !== undefined && messages.layout !== "compatible" && messages.layout !== "unicode") {
-		throw new Error("messages.layout must be compatible or unicode");
+	const settings = defaults();
+	for (const key of UI_SETTINGS) {
+		if (data[key] === undefined) continue;
+		if (typeof data[key] !== "boolean") throw new Error(`${key} must be a boolean`);
+		settings[key] = data[key] as boolean;
 	}
-	return {
-		header: { showTopBar: header.showTopBar ?? true },
-		footer: { compact: footer.compact ?? false },
-		messages: { layout: messages.layout ?? "compatible" },
-	};
+	return settings;
 }
 
 export function loadUiSettings(path: string): UiSettings {
 	return parseSettings(readSettings(path));
 }
 
-/** One atomic write for a whole preset; merge at section level to preserve other preferences. */
-export function saveUiSettings(path: string, patch: UiSettingsPatch): UiSettings {
-	const settings = readSettings(path);
-	for (const key of Object.keys(patch) as (keyof UiSettings)[]) {
-		const current = settings[key] === undefined ? {} : object(settings[key], key);
-		settings[key] = { ...current, ...patch[key] };
-	}
+/** One atomic write; unrelated keys in the file are preserved. */
+export function saveUiSettings(path: string, patch: Partial<UiSettings>): UiSettings {
+	const settings = { ...readSettings(path), ...patch };
 	const resolved = parseSettings(settings);
 	mkdirSync(dirname(path), { recursive: true });
 	const temporary = `${path}.${randomUUID()}.tmp`;
@@ -67,34 +54,27 @@ export function saveUiSettings(path: string, patch: UiSettingsPatch): UiSettings
 	return resolved;
 }
 
-export function saveHeaderTopBar(path: string, showTopBar: boolean): void {
-	saveUiSettings(path, { header: { showTopBar } });
-}
+/** Message panel technique implied by fontCompat. */
+export const messageLayout = (settings: Readonly<UiSettings>): MessageLayout => settings.fontCompat ? "compatible" : "unicode";
 
-/** One owner for persistent UI preferences; render modules subscribe to live changes. */
 export class UiSettingsStore {
 	private value = defaults();
 	private listeners = new Set<() => void>();
 	readonly path: string;
 	constructor(path: string) { this.path = path; }
-	get current(): { readonly [K in keyof UiSettings]: Readonly<UiSettings[K]> } { return this.value; }
+	get current(): Readonly<UiSettings> { return this.value; }
 	reload(): void {
 		this.value = defaults();
 		this.value = loadUiSettings(this.path);
 	}
-	update(patch: UiSettingsPatch): void {
+	update(patch: Partial<UiSettings>): void {
 		this.value = saveUiSettings(this.path, patch);
 		for (const listener of this.listeners) listener();
 	}
-	setHeaderTopBar(showTopBar: boolean): void { this.update({ header: { showTopBar } }); }
-	setFooterCompact(compact: boolean): void { this.update({ footer: { compact } }); }
-	setMessageLayout(layout: MessageLayout): void { this.update({ messages: { layout } }); }
-	applyPreset(preset: UiPreset): void {
-		this.update({
-			header: { showTopBar: preset === "desktop" },
-			footer: { compact: preset !== "desktop" },
-			...(preset === "compact" ? {} : { messages: { layout: preset === "desktop" ? "unicode" as const : "compatible" as const } }),
-		});
+	toggle(key: UiSetting): boolean {
+		const next = !this.value[key];
+		this.update({ [key]: next });
+		return next;
 	}
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);

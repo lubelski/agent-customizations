@@ -12,22 +12,21 @@ Pi’s strength is that it’s designed to be uniquely yours. Like any of these 
 
 ## Included extensions
 
-- [`ui.ts`](extensions/ui.ts) — unified presentation: header, footer/editor, message panels, code blocks/copying, and tool summaries/disclosure. Internal modules live under [`lib/ui/`](lib/ui/); persistent preferences belong to `ui.json` in Pi's agent directory. `/header-bar [on|off|toggle]` saves whether the header's top rule is visible.
+- [`ui.ts`](extensions/ui.ts) — unified presentation: header, footer/editor, message panels, code blocks/copying, and tool summaries/disclosure. Internal modules live under [`lib/ui/`](lib/ui/); persistent preferences belong to `ui.json` in Pi's agent directory.
 - [`session-rename.ts`](extensions/session-rename.ts) — independently names sessions with concise, scannable topics; retains its own `rename.json` settings.
 
-The package manifest loads only these two entry points. The six former visual entry points are deprecated compatibility shims; their frozen implementations live under [`legacy/`](legacy/). Switching from legacy to unified presentation requires a fresh Pi process, not `/reload`. `/ui-mobile` selects a compact header/footer and font-compatible message panels; `/ui-desktop` restores the full header/footer with compatible panels; `/ui-compact` changes density without changing message style. Compatible panels are the default; `/ui-messages unicode` opts into the original fractional panel edges. See the command and setting details below.
+The package manifest loads only these two entry points. The six former visual entry points are deprecated compatibility shims; their frozen implementations live under [`legacy/`](legacy/). Switching from legacy to unified presentation requires a fresh Pi process, not `/reload`. See the command and setting details below.
 
 See [`extensions/README.md`](extensions/README.md) for details and installation.
 
-## Mobile and compact modes
+## UI options
+
+Three independent toggles, all off by default and saved to `ui.json`:
 
 ```text
-/ui-mobile                    Compact header + three-row footer + compatible panels
-/ui-desktop                   Full header/footer + compatible panels
-/ui-compact                   Compact header/footer; keep current message style
-/ui-footer [compact|full|toggle]
-/ui-messages compatible|unicode
-/header-bar [on|off|toggle]
+/ui-toggle-compact-header     Two-row header without the top rule
+/ui-toggle-compact-footer     Three-row footer instead of seven
+/ui-toggle-font-compat        Whole-row padding and gaps instead of half-block glyphs
 ```
 
 Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_CODING_AGENT_DIR`). The compact header/footer reclaim **five rows** together. Compatible message panels use spaces and rectangular backgrounds instead of unsupported block/sextant glyphs; they are not an ASCII-only mode for the entire UI. Settings are shared by clients using the same Pi agent directory. Presets save individual values, so subsequent overrides persist too.

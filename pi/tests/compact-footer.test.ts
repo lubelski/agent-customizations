@@ -12,7 +12,7 @@ test("compact footer preserves links, workspace, inventory and native autocomple
 	const dir = mkdtempSync(join(tmpdir(), "compact-footer-"));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
 	const settings = new UiSettingsStore(join(dir, "ui.json"));
-	settings.applyPreset("mobile");
+	settings.update({ compactHeader: true, compactFooter: true, fontCompat: true });
 	themeModule.initTheme("dark");
 	const commands = new Map();
 	const tools = new Map();
@@ -65,11 +65,11 @@ test("compact footer preserves links, workspace, inventory and native autocomple
 	assert.match(plain(100).join("\n"), /MCP: linear/);
 	assert.match(plain(100).join("\n"), /inventory to collapse/);
 	await commands.get("inventory").handler();
-	settings.setFooterCompact(false);
+	settings.update({ compactFooter: false });
 	assert.equal(plain(80).length, 7);
 	assert.equal(editor.getAutocompleteMaxVisible(), 6);
 	assert.ok(renders > 0 && invalidations > 0);
-	settings.setFooterCompact(true);
+	settings.update({ compactFooter: true });
 	assert.equal(plain(80).length, 3);
 	editor.setAutocompleteProvider({
 		getSuggestions: () => ({ items: Array.from({ length: 10 }, (_, i) => ({ value: `/hello${i}`, label: `/hello${i}` })), prefix: "/" }),
@@ -82,16 +82,16 @@ test("compact footer preserves links, workspace, inventory and native autocomple
 	editor.render(80);
 	assert.equal(editor.renderedAutocompleteHeight, 4, "three native suggestions plus overflow indicator");
 	assert.deepEqual(footer.render(80), []);
-	settings.setFooterCompact(false);
+	settings.update({ compactFooter: false });
 	editor.render(80);
 	assert.equal(editor.getAutocompleteMaxVisible(), 6);
 	editor.handleInput("\x1b");
 	editor.render(80);
 	assert.equal(plain(80).length, 7);
-	settings.setFooterCompact(true);
+	settings.update({ compactFooter: true });
 	const beforeShutdown = renders;
 	events.get("session_shutdown")({}, ctx);
-	settings.applyPreset("desktop");
+	settings.update({ compactHeader: false, compactFooter: false, fontCompat: false });
 	assert.equal(renders, beforeShutdown, "shutdown removes live subscribers");
 	footer.dispose();
 });

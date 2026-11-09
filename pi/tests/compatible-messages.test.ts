@@ -31,7 +31,7 @@ test("compatible panels avoid block glyphs and switch existing/cached/streaming 
 		const custom = new CustomMessageComponent({ role: "custom", customType: "test", content: "Custom text", display: true, timestamp: 0 });
 		const components = [assistant, user, custom];
 		for (const layout of ["compatible", "unicode", "compatible", "unicode", "compatible"] as const) {
-			settings.setMessageLayout(layout);
+			settings.update({ fontCompat: layout === "compatible" });
 			for (const width of [8, 40, 100]) {
 				for (const component of components) {
 					// Render twice at the same width to exercise native Markdown caches.
@@ -62,8 +62,8 @@ test("compatible panels avoid block glyphs and switch existing/cached/streaming 
 		assert.match(plainUser.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /\*\*bold\*\*/, "user prompts follow /plain-text");
 		assert.match(user.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /─{10}/, "existing user prompts switch too");
 		assert.match(assistant.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /\*\*reply\*\*/);
-		settings.setMessageLayout("unicode");
+		settings.update({ fontCompat: false });
 		assert.doesNotMatch(assistant.render(80).map(tuiModule.stripTerminalSequences).join("\n"), specialEdges, "plain text overrides panel style");
-		settings.setMessageLayout("compatible");
+		settings.update({ fontCompat: true });
 	}
 });
