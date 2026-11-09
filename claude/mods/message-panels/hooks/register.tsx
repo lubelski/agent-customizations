@@ -180,11 +180,12 @@ async function copyText($: EngineInterface, text: string, surface: UiPressArgume
   $.ui.toast(copied.isCopied ? 'Copied' : 'Could not copy message')
 }
 
-// The copy target: the last 4 cells of the panel's top edge, above the fill's
-// last 4 columns. At rest they draw as the edge does; under the pointer the
+// The copy target: 4 cells of the panel's top edge, ending one cell short of
+// the fill's last column, so one cell of the edge always shows past it. At rest they draw as the edge does; under the pointer the
 // word swaps in. A hover can restyle a label but not change its text, so the
 // word is a second Button, drawn `display: none` until its keyed Box is hovered.
 const COPY_LABEL = 'COPY'
+const COPY_INSET = 1
 
 function copyCell({ Box, Text, Button }: Elements, color: string, rest: { text: string; fill?: string }, copy: Copy) {
   return (
@@ -218,13 +219,13 @@ function panel(elements: Elements, color: string, body: unknown, gap: number, co
  * line or the turn line under a panel needs no gap of its own.
  */
 function compatPanel({ Box, Text, Button }: Elements, color: string, body: unknown, gap: number, copy?: Copy) {
-  // The copy cells are the last 4 cells of the fill's top padding row.
+  // The copy cells sit in the fill's top padding row, one cell in from its end.
   return (
     <Box flexDirection="column" marginTop={gap} marginBottom={1}>
       <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
         {body}
         {copy && (
-          <Box position="absolute" top={0} right={0}>
+          <Box position="absolute" top={0} right={COPY_INSET}>
             {copyCell({ Box, Text, Button }, color, { text: ' '.repeat(COPY_LABEL.length), fill: color }, copy)}
           </Box>
         )}
@@ -249,7 +250,8 @@ const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
 
 function cap(elements: Elements, color: string, glyphs: { left: string; fill: string; right: string }, copy?: Copy) {
   const { Box, Text } = elements
-  // With `copy`, the last 4 fill cells before the corner are the copy cells.
+  // With `copy`, 4 fill cells before the corner are the copy cells, and one
+  // plain fill cell sits between them and the corner.
   return (
     <Box height={1} overflow="hidden">
       <Text color={color}>{glyphs.left}</Text>
@@ -257,6 +259,7 @@ function cap(elements: Elements, color: string, glyphs: { left: string; fill: st
         <Text color={color}>{glyphs.fill}</Text>
       </Box>
       {copy && copyCell(elements, color, { text: glyphs.fill.slice(0, COPY_LABEL.length) }, copy)}
+      {copy && <Text color={color}>{glyphs.fill.slice(0, COPY_INSET)}</Text>}
       <Text color={color}>{glyphs.right}</Text>
     </Box>
   )
