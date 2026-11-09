@@ -35,14 +35,14 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout with full-row space padding and no special block/sextant glyphs. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
+Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout: one uncolored gap column, then one column of panel padding, on each side, with no special block/sextant glyphs. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
 ### Presets and individual controls
 
 | Command | Header | Footer | Message panels |
 |---|---|---|---|
 | `/ui-mobile` | Two rows, no top rule | Three rows | Compatible |
-| `/ui-desktop` | Three rows | Seven rows | Compatible |
+| `/ui-desktop` | Three rows | Seven rows | Unicode |
 | `/ui-compact` | Two rows, no top rule | Three rows | Leave unchanged |
 
 Presets apply immediately and save concrete preferences in one atomic update. They are explicit selections, not toggles or automatic terminal detection. Individual controls can override any part afterward:
@@ -53,7 +53,7 @@ Presets apply immediately and save concrete preferences in one atomic update. Th
 /ui-messages compatible|unicode
 ```
 
-`/header-bar` and `/ui-footer` without arguments toggle their setting. `/ui-messages` without arguments reports the current message layout. Use `/ui-messages unicode` to opt into the original fractional caps and side edges. `/ui-desktop` deliberately selects compatible panels rather than assuming desktop font support. Commands require interactive mode; header rendering applies only in supported fullscreen layouts.
+`/header-bar` and `/ui-footer` without arguments toggle their setting. `/ui-messages` without arguments reports the current message layout. Use `/ui-messages unicode` to opt into the original fractional caps and side edges. `/ui-desktop` selects the Unicode panels, assuming a desktop terminal font with block and sextant glyphs. Commands require interactive mode; header rendering applies only in supported fullscreen layouts.
 
 Preferences belong to this extension in `ui.json` under `getAgentDir()` (normally `~/.pi/agent/`, respecting `PI_CODING_AGENT_DIR`). For example, `/ui-mobile` saves:
 

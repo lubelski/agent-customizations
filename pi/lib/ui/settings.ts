@@ -93,7 +93,7 @@ export class UiSettingsStore {
 		this.update({
 			header: { showTopBar: preset === "desktop" },
 			footer: { compact: preset !== "desktop" },
-			...(preset === "compact" ? {} : { messages: { layout: "compatible" as const } }),
+			...(preset === "compact" ? {} : { messages: { layout: preset === "desktop" ? "unicode" as const : "compatible" as const } }),
 		});
 	}
 	subscribe(listener: () => void): () => void {

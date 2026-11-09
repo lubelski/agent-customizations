@@ -9,13 +9,16 @@ import {
 	UserMessageComponent,
 	type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { foregroundAnsi, mixColors, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
+import { foregroundAnsi, Markdown, mixColors, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 import {
 	LEFT_PANEL_EDGE,
 	RIGHT_PANEL_EDGE,
+	renderWithGutter,
 	shapePanelCaps,
 	trimToolRulePadding,
 } from "../../transcript-layout.ts";
+import { attachMessageRendering } from "../../message-controls.ts";
+import { plainDivider, plainTextState } from "./assistant.ts";
 
 import type { MessageLayout } from "../settings.ts";
 
@@ -71,11 +74,26 @@ function patchPanelComponent(ComponentClass: { prototype: Renderable }): void {
 			this.invalidate?.();
 			layouts.set(this, layout);
 		}
-		const lines = original.call(this, width);
-		return ComponentClass === ToolExecutionComponent
-			? trimToolRulePadding(lines, stripTerminalSequences)
-			: layout === "unicode" ? shapePanelCaps(lines, stripTerminalSequences, visibleWidth) : lines;
+		if (ComponentClass === ToolExecutionComponent) {
+			return trimToolRulePadding(original.call(this, width), stripTerminalSequences);
+		}
+		if (ComponentClass === UserMessageComponent) attachPlainText(this);
+		return layout === "unicode"
+			? shapePanelCaps(original.call(this, width), stripTerminalSequences, visibleWidth)
+			: renderWithGutter(w => original.call(this, w), width);
 	};
+}
+
+const plainControls = new WeakSet<object>();
+
+/** User prompts follow the same /plain-text toggle as assistant prose. */
+function attachPlainText(component: Renderable): void {
+	const children = (component as { children?: unknown[] }).children ?? [];
+	for (const child of children) {
+		if (!(child instanceof Markdown) || plainControls.has(child)) continue;
+		attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], plainTextState, plainDivider);
+		plainControls.add(child);
+	}
 }
 
 function patchPanelBackgrounds(): void {

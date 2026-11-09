@@ -39,7 +39,14 @@ test("compatible panels avoid block glyphs and switch existing/cached/streaming 
 					const second = component.render(width);
 					assert.deepEqual(second, first);
 					const plain = second.map(tuiModule.stripTerminalSequences).join("\n");
-					if (layout === "compatible") assert.doesNotMatch(plain, specialEdges);
+					if (layout === "compatible") {
+						assert.doesNotMatch(plain, specialEdges);
+						// One uncolored gap column outside the panel on each side.
+						if (width >= 3) for (const line of second) {
+							assert.ok(line.startsWith("\x1b[49m ") || line.includes("\x07\x1b[49m "), JSON.stringify(line));
+							assert.ok(line.endsWith("\x1b[49m "), JSON.stringify(line));
+						}
+					}
 					else assert.match(plain, specialEdges);
 					assert.ok(second.every(line => tuiModule.visibleWidth(line) <= width));
 				}
@@ -51,6 +58,9 @@ test("compatible panels avoid block glyphs and switch existing/cached/streaming 
 		streaming.updateContent({ content: [{ type: "text", text: "More **streaming** text" }] }, true);
 		assert.doesNotMatch(streaming.render(80).map(tuiModule.stripTerminalSequences).join("\n"), specialEdges);
 		await commands.get("plain-text").handler("", ctx);
+		const plainUser = new UserMessageComponent("A **bold** prompt.");
+		assert.match(plainUser.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /\*\*bold\*\*/, "user prompts follow /plain-text");
+		assert.match(user.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /─{10}/, "existing user prompts switch too");
 		assert.match(assistant.render(80).map(tuiModule.stripTerminalSequences).join("\n"), /\*\*reply\*\*/);
 		settings.setMessageLayout("unicode");
 		assert.doesNotMatch(assistant.render(80).map(tuiModule.stripTerminalSequences).join("\n"), specialEdges, "plain text overrides panel style");

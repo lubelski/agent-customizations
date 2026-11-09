@@ -14,6 +14,7 @@ import {
 import {
 	LEFT_PANEL_EDGE,
 	RIGHT_PANEL_EDGE,
+	renderWithGutter,
 	stabilizeThinkingToolSpacing,
 	type ThinkingLayout,
 } from "../../transcript-layout.ts";
@@ -23,6 +24,8 @@ import type { MessageLayout } from "../settings.ts";
 
 const controls = new WeakSet<object>();
 const state: MessageControlState = { plain: false };
+export const plainTextState = state;
+export const plainDivider = (text: string): string => activeTheme ? activeTheme.fg("mdCodeBlockBorder", text) : text;
 let latestSource = "";
 
 const ORIGINAL_RENDER = Symbol.for("will.pi.assistant-background.original-render");
@@ -109,8 +112,7 @@ function styleTextBlocks(component: AssistantInternals): void {
 
 		latestSource = (child as unknown as { text: string }).text;
 		if (!controls.has(child)) {
-			attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], state,
-				text => activeTheme ? activeTheme.fg("mdCodeBlockBorder", text) : text);
+			attachMessageRendering(child as unknown as Parameters<typeof attachMessageRendering>[0], state, plainDivider);
 			controls.add(child);
 		}
 		const markdown = child as unknown as MarkdownInternals;
@@ -159,7 +161,8 @@ function patchAssistantRendering(): void {
 
 	const wrapper = function (this: AssistantInternals, width: number): string[] {
 		styleTextBlocks(this);
-		return stabilizeThinkingToolSpacing(original.call(this, width), messageLayout(this));
+		const render = (w: number) => stabilizeThinkingToolSpacing(original.call(this, w), messageLayout(this));
+		return getLayout() === "compatible" ? renderWithGutter(render, width) : render(width);
 	};
 
 	Object.defineProperty(target, ORIGINAL_RENDER, { value: original, configurable: true, writable: true });
@@ -171,10 +174,10 @@ export default function (pi: ExtensionAPI, layout: () => MessageLayout = () => "
 	getLayout = layout;
 	patchAssistantRendering();
 	pi.registerCommand("plain-text", {
-		description: "Toggle original Markdown for all assistant messages",
+		description: "Toggle original Markdown for all user and assistant messages",
 		handler: async (_args, ctx) => {
 			state.plain = !state.plain;
-			ctx.ui.notify(state.plain ? "All assistant messages: plain text" : "All assistant messages: formatted", "info");
+			ctx.ui.notify(state.plain ? "All messages: plain text" : "All messages: formatted", "info");
 		},
 	});
 

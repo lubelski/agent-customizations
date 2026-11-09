@@ -28,7 +28,7 @@ test("presets and individual controls persist concrete settings with atomic noti
 	await run("ui-compact");
 	assert.equal(settings.current.messages.layout, "unicode", "compact does not change font preference");
 	await run("ui-desktop");
-	assert.deepEqual(settings.current, { header: { showTopBar: true }, footer: { compact: false }, messages: { layout: "compatible" } });
+	assert.deepEqual(settings.current, { header: { showTopBar: true }, footer: { compact: false }, messages: { layout: "unicode" } });
 	await run("ui-mobile");
 	settings.setHeaderTopBar(true);
 	await run("ui-footer", "full");

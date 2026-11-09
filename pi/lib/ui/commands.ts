@@ -14,7 +14,8 @@ export default function installUiCommands(pi: ExtensionAPI, settings: UiSettings
 	for (const preset of ["compact", "mobile", "desktop"] as const satisfies readonly UiPreset[]) {
 		pi.registerCommand(`ui-${preset}`, {
 			description: preset === "compact" ? "Compact header/footer; leave message layout unchanged (saved)"
-				: `${preset === "mobile" ? "Compact" : "Full"} header/footer with compatible message panels (saved)`,
+				: preset === "mobile" ? "Compact header/footer with compatible message panels (saved)"
+				: "Full header/footer with Unicode message panels (saved)",
 			handler: async (args, ctx) => {
 				if (args.trim()) { ctx.ui.notify(`Usage: /ui-${preset}`, "warning"); return; }
 				save(ctx, () => settings.applyPreset(preset), `UI ${preset}`);
