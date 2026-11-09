@@ -7,9 +7,12 @@ const top = " 🬭🬭🬭 ", bottom = " 🬂🬂🬂 ";
 
 test("blank rows between abutting panels collapse only across component edges", () => {
 	const parts = [[top, " a   ", bottom], [""], ["  ", top, " b   ", bottom, ""], ["› tool"], ["", top, " c   ", bottom]];
-	assert.deepEqual(collapsePanelGaps(parts), [0, 1, 1, 0, 0]);
-	assert.deepEqual(parts, [[top, " a   ", bottom], [], [top, " b   ", bottom, ""], ["› tool"], ["", top, " c   ", bottom]],
-		"gaps next to non-panel rows stay");
+	assert.deepEqual(collapsePanelGaps(parts), [0, 1, 1, 0, 1]);
+	assert.deepEqual(parts, [[top, " a   ", bottom], [], [top, " b   ", bottom], ["› tool"], [top, " c   ", bottom]],
+		"a cap separates a panel from anything next to it");
+	const plain = [["› tool"], [""], ["› other"], [""], ["text"]];
+	collapsePanelGaps(plain);
+	assert.deepEqual(plain, [["› tool"], [""], ["› other"], [""], ["text"]], "gaps between non-panel rows stay");
 	const inside = [[top, " a   ", bottom, "", top, " b   ", bottom]];
 	assert.deepEqual(collapsePanelGaps(inside), [0]);
 	assert.equal(inside[0].length, 7, "gaps inside one component are left alone");
@@ -36,11 +39,12 @@ test("container collapse keeps mouse rows aligned and is switchable", () => {
 	assert.equal(container.render(5).length, 8, "reinstall does not stack");
 });
 
-test("thinking rows abut panels on either side, but not each other or tools", () => {
+test("thinking rows abut panels on either side, but keep gaps from each other and tools", () => {
 	const think = `${THINKING_MARK}  hmm`;
 	const parts = [[top, " a   ", bottom], [""], [think, think], [""], [top, " b   ", bottom], ["", think], [""], [think], ["", "› tool"]];
 	collapsePanelGaps(parts);
-	assert.deepEqual(parts, [[top, " a   ", bottom], [], [think, think], [], [top, " b   ", bottom], [think], [""], [think], ["", "› tool"]]);
+	assert.deepEqual(parts, [[top, " a   ", bottom], [], [think, think], [], [top, " b   ", bottom], [think], [""], [think], ["", "› tool"]],
+		"thinking without a cap keeps its gap from other thinking and tools");
 	// Caps before the message gutter is added (inside the message's own container).
 	const inner = [["🬂🬂🬂"], [""], ["🬭🬭🬭"]];
 	collapsePanelGaps(inner);
