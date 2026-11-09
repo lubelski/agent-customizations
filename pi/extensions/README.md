@@ -103,31 +103,32 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
-- completed, collapsed tools occupy two muted rows, the same height they had while streaming: tool name plus a path, command, query, or URL when available, then `└` with the last output line;
+- completed, collapsed tools occupy three muted rows, the same height they had while streaming: tool name plus a path, command, query, or URL when available, then `│` and `└` with the latest two preview lines;
 - codemode rows list up to three distinct static tool/discovery call names in source order, with repeat counts and `+N more`; narrow widths show fewer names. These are source call sites, not execution counts—loops and branches are not evaluated. Comments/string examples are ignored; dynamic calls and unparseable/oversized scripts fall back gracefully;
 - clicking either row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
 - click `+10 more` to grow the preview incrementally, or `show all` to restore native full output (including images);
 - click the summary again to collapse; reopening starts at ten rows, and preview-body clicks do not unexpectedly change its size;
 - `/tool-detail more|all|collapse` controls the last opened/clicked tool; Ctrl+O followed by this command provides a keyboard path (when opening several tools, it targets the last one);
 - image output stays hidden until `show all`, so image escape sequences are never clipped;
-- running tools use the two-row streaming view below;
+- running tools use the three-row streaming view below;
 - tool titles and output use the theme's dim text color;
 - failed tools use an error-colored row with a failure marker;
 - saved results and model context are unchanged.
 
-This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Completed tools own their header/control hit areas; previews use native text components without images, and full disclosure uses native rendering. Pending and running tools draw their own two rows instead (see below). Reloading does not stack the wrappers.
+This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Completed tools own their header/control hit areas; previews use native text components without images, and full disclosure uses native rendering. Pending and running tools draw their own three rows instead (see below). Reloading does not stack the wrappers.
 
 
 ### Streaming tools
 
-While a tool call streams in and runs, it stays exactly two rows, so the transcript does not grow and shrink:
+While a tool call streams in and runs, it stays exactly three rows, so the transcript does not grow and shrink:
 
 ```text
 › codemode · read, bash
+  │ const b = 2;
   └ return [a, b];
 ```
 
-The first row is the summary. Branches (`└` and `│`) sit two columns farther in, beneath the tool name. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it keeps the same two rows, with the `└` row showing the last output line.
+The first row is the summary. Two preview rows show the latest meaningful lines of the streaming payload (syntax-highlighted) or output, with short previews padded to keep the height stable. Branches (`│` then `└`) sit two columns farther in, beneath the tool name. Click any of the three rows to open the tool; click again to close. Completion keeps the same three-row preview.
 
 ## `session-rename.ts`
 

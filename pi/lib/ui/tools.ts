@@ -115,9 +115,8 @@ function highlighted(text: string, lang?: string): string[] {
 }
 
 /**
- * A pending tool keeps a fixed two-row height: its summary, then a dim └ with
- * the latest streamed line (output once it runs). Clicking opens it to watch
- * the whole payload stream; it collapses to one row when it completes.
+ * A collapsed tool keeps a fixed three-row height: its summary and two
+ * preview lines (output once it runs). Clicking opens the full details.
  */
 /** Payload lines (highlighted) then output lines, for the └ row and the opened view. */
 function toolBody(tool: ToolComponent, theme: Theme): string[] {
@@ -138,12 +137,12 @@ function branchRow(bracket: string, line: string, width: number, theme: Theme): 
 	return theme.fg("dim", prefix) + truncateToWidth(line, width - 4);
 }
 
-/** The └ row: the latest line with words (not a lone closing bracket). */
-function tailRow(body: string[], width: number, theme: Theme): string {
-	const reversed = [...body].reverse();
-	const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
-		?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
-	return branchRow("└", tail, width, theme);
+/** Two latest meaningful lines; pad short previews to avoid height changes. */
+function previewRows(body: string[], width: number, theme: Theme): string[] {
+	const meaningful = body.filter(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)));
+	const lines = (meaningful.length ? meaningful : body.filter(line => stripTerminalSequences(line).trim())).slice(-2);
+	while (lines.length < 2) lines.unshift("");
+	return lines.map((line, index) => branchRow(index === 0 ? "│" : "└", line, width, theme));
 }
 
 function renderPending(tool: ToolComponent, width: number): string[] {
@@ -151,7 +150,7 @@ function renderPending(tool: ToolComponent, width: number): string[] {
 	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width), width));
 	const body = toolBody(tool, theme);
 	const row = (bracket: string, line = "") => branchRow(bracket, line, width, theme);
-	if (!streamingOpen.has(tool)) return [header, tailRow(body, width, theme)];
+	if (!streamingOpen.has(tool)) return [header, ...previewRows(body, width, theme)];
 	if (!body.length) return [header, row("└")];
 	return [header, ...body.map((line, index) => row(index === body.length - 1 ? "└" : "│", line))];
 }
@@ -230,8 +229,8 @@ function patchToolHeight(): void {
 		if (width <= 0) return [];
 		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
-		// Two rows, like while streaming, so completion does not change the height.
-		if (!this.expanded) return [header, tailRow(toolBody(this, currentTheme!()), width, currentTheme!())];
+		// Three rows, like while streaming, so completion does not change the height.
+		if (!this.expanded) return [header, ...previewRows(toolBody(this, currentTheme!()), width, currentTheme!())];
 		const state = disclosure(this);
 		// Never slice terminal image escape sequences. Preview text only; full
 		// disclosure restores native image rendering intact.
@@ -266,7 +265,7 @@ function patchToolHeight(): void {
 		}
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		selected = new WeakRef(this);
-		if (event.y === 0 || (!this.expanded && event.y === 1)) {
+		if (event.y === 0 || (!this.expanded && (event.y === 1 || event.y === 2))) {
 			this.setExpanded(!this.expanded);
 			this.ui?.requestRender();
 			return { handled: true };
