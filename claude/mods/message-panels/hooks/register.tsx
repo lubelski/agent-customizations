@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
 import { fitPath, shortenPath } from './paths'
 import type { PathContext } from './paths'
 
@@ -161,7 +161,7 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
   return { cwd, home }
 }
 
-type Elements = { Box: any; Text: any }
+type Elements = { Box: any; Text: any; Button: any }
 
 /**
  * How a panel draws its spacing, from the `fontCompat` option (`/config`).
@@ -171,9 +171,21 @@ type Elements = { Box: any; Text: any }
  */
 let fontCompat = false
 
-/** A panel in the spacing mode in use; `gap` is `gapAbove`, which compact ignores. */
-function panel(elements: Elements, color: string, body: unknown, gap: number) {
-  return fontCompat ? compatPanel(elements, color, body, gap) : compactPanel(elements, color, body)
+/** What a press on a panel's top-right cell does: copy the panel's raw text. */
+type Copy = (press: UiPressArgument) => void
+
+/** Copies a panel's text as the model or the person wrote it, Markdown and all. */
+async function copyText($: EngineInterface, text: string, surface: UiPressArgument['surface']) {
+  const copied = await $.ui.copy({ text, surface })
+  $.ui.toast(copied.isCopied ? 'Copied' : 'Could not copy message')
+}
+
+/**
+ * A panel in the spacing mode in use; `gap` is `gapAbove`, which compact
+ * ignores. With `copy`, the panel's top-right cell is a Button that copies it.
+ */
+function panel(elements: Elements, color: string, body: unknown, gap: number, copy?: Copy) {
+  return fontCompat ? compatPanel(elements, color, body, gap, copy) : compactPanel(elements, color, body, copy)
 }
 
 /**
@@ -184,11 +196,17 @@ function panel(elements: Elements, color: string, body: unknown, gap: number) {
  * not a panel (gapAbove), so two panels in a row share one blank row. A tool
  * line or the turn line under a panel needs no gap of its own.
  */
-function compatPanel({ Box }: Elements, color: string, body: unknown, gap: number) {
+function compatPanel({ Box, Button }: Elements, color: string, body: unknown, gap: number, copy?: Copy) {
+  // The copy cell is the fill's top-right cell, in the top padding row.
   return (
     <Box flexDirection="column" marginTop={gap} marginBottom={1}>
       <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
         {body}
+        {copy && (
+          <Box position="absolute" top={0} right={0} width={1} height={1} backgroundColor={color}>
+            <Button key="copy" plain label=" " onPress={copy} />
+          </Box>
+        )}
       </Box>
     </Box>
   )
@@ -208,14 +226,21 @@ const RIGHT_EDGE = '▌\n'.repeat(500)
 const TOP_CAP = { left: '▗', fill: '▄'.repeat(500), right: '▖' }
 const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
 
-function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fill: string; right: string }) {
+function cap({ Box, Text, Button }: Elements, color: string, glyphs: { left: string; fill: string; right: string }, copy?: Copy) {
+  // With `copy`, the right corner glyph is the Button that copies the panel.
   return (
     <Box height={1} overflow="hidden">
       <Text color={color}>{glyphs.left}</Text>
       <Box flexGrow={1} flexShrink={1} height={1} overflow="hidden">
         <Text color={color}>{glyphs.fill}</Text>
       </Box>
-      <Text color={color}>{glyphs.right}</Text>
+      {copy ? (
+        <Button key="copy" plain onPress={copy}>
+          <Text color={color}>{glyphs.right}</Text>
+        </Button>
+      ) : (
+        <Text color={color}>{glyphs.right}</Text>
+      )}
     </Box>
   )
 }
@@ -227,14 +252,14 @@ function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fil
  * panels in a row leave one row of the terminal's background between their
  * fills, and a tool line sits half a row from a fill.
  */
-function compactPanel(elements: Elements, color: string, body: unknown) {
+function compactPanel(elements: Elements, color: string, body: unknown, copy?: Copy) {
   const { Box, Text } = elements
   // The bottom cap sits outside the clipping Box: the edge columns run past
   // their own Box's bottom, and only the parent's overflow cuts them off.
   return (
     <Box flexDirection="column">
       <Box flexDirection="column" overflow="hidden">
-        {cap(elements, color, TOP_CAP)}
+        {cap(elements, color, TOP_CAP, copy)}
         <Box backgroundColor={color} marginX={1} paddingX={1} flexDirection="column">
           {body}
         </Box>
@@ -490,7 +515,8 @@ export const register: Register = (on, options) => {
     }
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, colors.assistant, body, gapAbove(e.requestId))
+    const text = e.props.text
+    return panel(elements, colors.assistant, body, gapAbove(e.requestId), press => copyText($, text, press.surface))
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
@@ -510,7 +536,9 @@ export const register: Register = (on, options) => {
     }
     if (e.props.origin.kind !== 'composer') return next(e)
     const colors = await palette($)
-    return panel(elements, colors.user, <elements.Text color={colors.userText}>{e.props.text}</elements.Text>, gapAbove(e.requestId))
+    const text = e.props.text
+    const copy: Copy = press => copyText($, text, press.surface)
+    return panel(elements, colors.user, <elements.Text color={colors.userText}>{text}</elements.Text>, gapAbove(e.requestId), copy)
   })
 
   // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the
