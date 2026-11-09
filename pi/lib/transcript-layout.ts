@@ -6,6 +6,12 @@ export const RIGHT_PANEL_EDGE = "▌"; // left half block
 export const BLANK_PANEL_LINE = /^▐ *▌$/u;
 export const BLANK_TOOL_RULE_LINE = /^│ *$/u;
 
+/** Compatible panels: one uncolored gap column on each side of the panel, which keeps its own one-column padding. */
+export function renderWithGutter(render: (width: number) => string[], width: number): string[] {
+	if (width < 3) return render(width);
+	return render(width - 2).map(line => `\x1b[49m ${line}\x1b[49m `);
+}
+
 export type ThinkingLayout = {
 	hasThinking: boolean;
 	hasProse: boolean;
@@ -64,11 +70,11 @@ export function trimToolRulePadding(lines: string[], strip: StripTerminalSequenc
 }
 
 /**
- * Pi already separates thinking from following prose. It deliberately omits
- * that spacer before separately rendered tools, so add exactly one there.
+ * Pi omits the spacer between an assistant message and the separately rendered
+ * tools that follow it. Add exactly one so every message/tool boundary has one gap row.
  */
 export function stabilizeThinkingToolSpacing(lines: string[], layout: ThinkingLayout): string[] {
-	if (!layout.hasThinking || layout.hasProse || !layout.hasToolCall) return lines;
+	if (!(layout.hasThinking || layout.hasProse) || !layout.hasToolCall) return lines;
 	if (lines.length === 0 || lines.at(-1)?.trim() === "") return lines;
 	return [...lines, ""];
 }

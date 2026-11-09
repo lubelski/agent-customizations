@@ -25,20 +25,22 @@ CLI = PI / "dist/bundle/cli.js"
 ANSI = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 
 
-def smoke(mode, theme):
+def smoke(mode, theme, presentation="ui"):
     with tempfile.TemporaryDirectory(prefix="pi-ui-ci-") as temporary:
         home = Path(temporary)
         agent = home / "agent"
         project = home / "project"
         project.mkdir()
         agent.mkdir()
-        # Match the documented installed layout, without reading the user's config.
-        for directory in ("extensions", "lib", "themes"):
-            (agent / directory).mkdir()
-            for source in (REPO / directory).iterdir():
-                (agent / directory / source.name).symlink_to(source)
+        # Exercise the real package manifest, not a wildcard that loads deprecated entry points.
+        resources = {"packages": [str(REPO)]} if presentation == "ui" else {
+            "extensions": [str(REPO / "extensions" / f"{name}.ts") for name in (
+                "assistant-background", "code-brackets", "half-bleed", "recessed-tools",
+                "session-title-banner", "stable-input-layout", "session-rename")],
+            "themes": [str(REPO / "themes" / "turquoise.json")],
+        }
         (agent / "settings.json").write_text(json.dumps({
-            "theme": theme, "tuiMode": mode, "quietStartup": True,
+            **resources, "theme": theme, "tuiMode": mode, "quietStartup": True,
             "showHardwareCursor": True, "lastChangelogVersion": json.loads((PI / "package.json").read_text())["version"],
         }))
         env = {key: os.environ[key] for key in ("PATH", "TMPDIR", "SYSTEMROOT") if key in os.environ}
@@ -78,17 +80,65 @@ def smoke(mode, theme):
             start = len(output)
             os.write(master, b"/inventory\r")  # Command expands the inventory.
             expect("/inventory to collapse", start)
-            expect("assistant-bg")
-            expect("half-bleed")
-            expect("recessed-tools")
+            if presentation == "legacy":
+                expect("assistant-bg")
+                expect("half-bleed")
+                expect("recessed-tools")
+            else:
+                expect("EXT: pi")  # One package provider, not six renderer modules.
+                assert "assistant-bg" not in ANSI.sub(b"", bytes(output)).decode(errors="replace")
             start = len(output)
             os.write(master, b"/inventory\r")
             expect("/inventory to expand", start)
+            if presentation == "ui":
+                for command, message in (
+                    (b"/ui-mobile\r", "UI mobile (saved)."),
+                    (b"/ui-messages unicode\r", "Message layout unicode (saved)."),
+                    (b"/ui-compact\r", "UI compact (saved)."),
+                ):
+                    start = len(output)
+                    os.write(master, command)
+                    expect(message, start)
+                assert json.loads((agent / "ui.json").read_text())["messages"]["layout"] == "unicode"
+                start = len(output)
+                os.write(master, b"/ui-mobile\r")
+                expect("UI mobile (saved).", start)
+                assert json.loads((agent / "ui.json").read_text()) == {
+                    "header": {"showTopBar": False}, "footer": {"compact": True}, "messages": {"layout": "compatible"},
+                }
+            if presentation == "ui" and mode == "fullscreen":
+                start = len(output)
+                os.write(master, b"/header-bar off\r")
+                expect("Header top bar off (saved).", start)
+                assert json.loads((agent / "ui.json").read_text())["header"]["showTopBar"] is False
             for _ in range(2):
                 start = len(output)
                 os.write(master, b"/reload\r")
                 expect("Reloaded keybindings", start)
                 expect("/inventory to expand", start)
+                if presentation == "ui":
+                    saved = json.loads((agent / "ui.json").read_text())
+                    assert saved["footer"]["compact"] is True
+                    assert saved["messages"]["layout"] == "compatible"
+                if presentation == "ui" and mode == "fullscreen":
+                    # Toggle proves /reload read the persisted false value (it must become true).
+                    start = len(output)
+                    os.write(master, b"/header-bar\r")
+                    expect("Header top bar on (saved).", start)
+                    assert json.loads((agent / "ui.json").read_text())["header"]["showTopBar"] is True
+                    start = len(output)
+                    os.write(master, b"/header-bar off\r")
+                    expect("Header top bar off (saved).", start)
+            if presentation == "ui":
+                for command, message in (
+                    (b"/ui-desktop\r", "UI desktop (saved)."),
+                    (b"/ui-footer compact\r", "Footer compact (saved)."),
+                    (b"/ui-footer full\r", "Footer full (saved)."),
+                    (b"/ui-mobile\r", "UI mobile (saved)."),
+                ):
+                    start = len(output)
+                    os.write(master, command)
+                    expect(message, start)
             # Trigger autocomplete and render at narrow and wide sizes.
             start = len(output)
             os.write(master, b"/ren")
@@ -96,8 +146,8 @@ def smoke(mode, theme):
             os.write(master, b"\x1b")
             time.sleep(0.15)
             os.write(master, b"\x15")  # Clear unfinished input without submitting it.
-            for columns in (40, 160):
-                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 32, columns, 0, 0))
+            for rows, columns in ((16, 24), (24, 40), (32, 160)):
+                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
                 os.kill(process.pid, signal.SIGWINCH)
                 until = time.monotonic() + 0.3
                 while time.monotonic() < until:
@@ -118,7 +168,7 @@ def smoke(mode, theme):
         except BaseException:
             artifacts = REPO / "test-artifacts"
             artifacts.mkdir(exist_ok=True)
-            path = artifacts / f"{mode}-{theme}.log"
+            path = artifacts / f"{presentation}-{mode}-{theme}.log"
             path.write_bytes(output)
             print(f"FAIL {mode}/{theme}; terminal output: {path}", flush=True)
             print(ANSI.sub(b"", bytes(output[-5000:])).decode(errors="replace"), flush=True)
@@ -128,10 +178,12 @@ def smoke(mode, theme):
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
             os.close(master)
-        print(f"PASS bundled CLI: {mode}/{theme} (startup, reload x2, autocomplete, resize, exit)", flush=True)
+        print(f"PASS bundled CLI: {presentation}/{mode}/{theme} (startup, reload x2, autocomplete, resize, exit)", flush=True)
 
 
 if __name__ == "__main__":
     for mode in ("fullscreen", "regular"):
         for theme in ("turquoise", "dark", "light"):
             smoke(mode, theme)
+    smoke("fullscreen", "dark", "legacy")
+    smoke("regular", "dark", "legacy")

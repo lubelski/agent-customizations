@@ -3,12 +3,12 @@ import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
 test("plain-text toggles existing and future assistant messages without controls", async () => {
- const { default: extension } = await jiti.import("../extensions/assistant-background.ts");
+ const { default: extension } = await jiti.import("../lib/ui/messages/assistant.ts");
  const { AssistantMessageComponent } = await jiti.import("@earendil-works/pi-coding-agent");
  themeModule.initTheme("dark");
  const commands = new Map();
  const events = new Map();
- extension({ on(name, handler) { events.set(name, handler); }, registerCommand(name, value) { commands.set(name, value); } });
+ extension({ on(name, handler) { events.set(name, handler); }, registerCommand(name, value) { commands.set(name, value); } }, () => "unicode");
  const ctx = { mode: "tui", ui: { theme: themeModule.theme, setStatus() {}, notify() {} } };
  events.get("session_start")({}, ctx);
  const create = () => new AssistantMessageComponent({ content: [{ type: "text", text: "First **paragraph**\n\nSecond paragraph\n\n```js\n  x();\n```" }], stopReason: "length" });

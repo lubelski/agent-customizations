@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
-const { default: extension } = await jiti.import("../extensions/assistant-background.ts");
+const { default: installAssistant } = await jiti.import("../lib/ui/messages/assistant.ts");
+const extension = (api) => installAssistant(api, () => "unicode");
 const { AssistantMessageComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 const commands = new Map();
 const events = new Map();
@@ -18,14 +19,20 @@ function start(theme = "dark") {
 const rows = component => component.render(80).map(tuiModule.stripTerminalSequences);
 
 for (const theme of ["dark", "light"]) {
- test(`thinking uses identical prose rendering, even when hidden: ${theme}`, () => {
+ test(`thinking shares the prose panel but stays italic and muted, even when hidden: ${theme}`, () => {
   start(theme);
   const text = "A **decision** and `code`.\n\nAnother paragraph.";
   const thinking = Object.freeze({ type: "thinking", thinking: text, thinkingSignature: "opaque-fixture" });
   const message = Object.freeze({ content: Object.freeze([thinking]), stopReason: "stop" });
   const component = new AssistantMessageComponent(message, true);
   const prose = new AssistantMessageComponent({ content: [{ type: "text", text }], stopReason: "stop" });
-  assert.deepEqual(component.render(80), prose.render(80));
+  const strip = (lines) => lines.map(tuiModule.stripTerminalSequences);
+  assert.deepEqual(strip(component.render(80)), strip(prose.render(80)), "same panel geometry and text");
+  // chalk emits no italic escape off a TTY, so assert the Markdown style itself.
+  const style = (c) => c.contentContainer.children.find(child => child instanceof tuiModule.Markdown).defaultTextStyle;
+  assert.equal(style(component).italic, true, "thinking is italic");
+  assert.notEqual(style(prose).italic, true, "prose is not italic");
+  assert.notEqual(component.render(80).join("\n"), prose.render(80).join("\n"), "thinking uses the muted thinking color");
   assert.equal(component.lastMessage, message);
   assert.equal(component.lastMessage.content[0], thinking);
   assert.equal(component.hideThinkingBlock, true);
@@ -33,7 +40,7 @@ for (const theme of ["dark", "light"]) {
   assert.ok(!component.contentContainer.children.some(child => child instanceof tuiModule.MouseRegion));
   component.setHideThinkingBlock(true);
   component.invalidate();
-  assert.deepEqual(component.render(80), prose.render(80));
+  assert.deepEqual(strip(component.render(80)), strip(prose.render(80)));
   for (const width of [10, 30, 120]) {
    assert.ok(component.render(width).every(line => tuiModule.visibleWidth(line) <= width));
   }

@@ -3,8 +3,8 @@ import test from "node:test";
 import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 
 test("completed tools are one row, with native details and accurate mouse expansion", async () => {
-	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../extensions/recessed-tools.ts");
-	const { default: halfBleed } = await jiti.import("../extensions/half-bleed.ts");
+	const { default: extension, toolSummary, codemodeCalls } = await jiti.import("../lib/ui/tools.ts");
+	const { default: halfBleed } = await jiti.import("../lib/ui/messages/panels.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 	const { stripTerminalSequences, visibleWidth, Text } = tuiModule;
 	themeModule.initTheme("dark");
@@ -103,4 +103,28 @@ test("completed tools are one row, with native details and accurate mouse expans
 	assert.match(stripTerminalSequences(codeTool.render(80)[0]), /codemode · describeTool/);
 	assert.equal(toolSummary("bash", { command: "echo\n\u001b[31mhello\tworld" }, false), "› bash · echo hello world");
 	assert.equal(toolSummary("mcp__server__tool", {}, false), "› mcp__server__tool");
+});
+
+test("compatible layout indents tool rows one column to align with message panels", async () => {
+	const { default: extension } = await jiti.import("../lib/ui/tools.ts");
+	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
+	const { stripTerminalSequences, visibleWidth } = tuiModule;
+	themeModule.initTheme("dark");
+	const handlers = new Map();
+	const pi = { on: (name, handler) => handlers.set(name, handler), registerCommand() {} };
+	let indent = true;
+	extension(pi, () => indent);
+	handlers.get("session_start")({}, { mode: "tui", ui: { get theme() { return themeModule.theme; }, setStatus() {} } });
+	const tool = new ToolExecutionComponent("bash", "id", { command: "ls" }, {}, undefined, { requestRender() {} });
+	tool.updateResult({ content: [{ type: "text", text: "a\nb" }], details: undefined, isError: false }, false);
+	assert.equal(stripTerminalSequences(tool.render(80)[0]), " › bash · ls");
+	tool.setExpanded(true);
+	for (const line of tool.render(40)) {
+		assert.ok(stripTerminalSequences(line).startsWith(" "));
+		assert.ok(visibleWidth(line) <= 40);
+	}
+	indent = false;
+	tool.setExpanded(false);
+	assert.equal(stripTerminalSequences(tool.render(80)[0]), "› bash · ls");
+	extension(pi);
 });

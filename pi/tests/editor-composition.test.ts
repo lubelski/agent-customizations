@@ -3,8 +3,8 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { jiti, keybindingsModule, themeModule, tuiModule } from "./pi-runtime.ts";
 
-const { default: stableInput, footerColumns, splitLine } = await jiti.import("../extensions/stable-input-layout.ts");
-const { renderTitleBanner } = await jiti.import("../extensions/session-title-banner.ts");
+const { default: stableInput, footerColumns, splitLine } = await jiti.import("../lib/ui/footer.ts");
+const { renderTitleBanner } = await jiti.import("../lib/ui/header.ts");
 const { stripTerminalSequences, visibleWidth, CURSOR_MARKER } = tuiModule;
 
 test("footer columns reserve independent space at narrow and wide widths", () => {

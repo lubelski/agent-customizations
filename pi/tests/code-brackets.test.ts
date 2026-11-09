@@ -3,7 +3,7 @@ import test from "node:test";
 import { jiti, tuiModule, themeModule } from "./pi-runtime.ts";
 
 test("fenced code uses plain language labels, lower arms, and native syntax colors", async () => {
-	const { default: extension } = await jiti.import("../extensions/code-brackets.ts");
+	const { default: extension } = await jiti.import("../lib/ui/code.ts");
 	const { Markdown, stripTerminalSequences, visibleWidth } = tuiModule;
 	const { getMarkdownTheme } = await jiti.import("@earendil-works/pi-coding-agent");
 	const pi = { on() {} };
