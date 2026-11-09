@@ -3,13 +3,18 @@ import type { EngineInterface, Register } from 'claude-code'
 import { fitPath, shortenPath } from './paths'
 import type { PathContext } from './paths'
 
-// Warm palette near Claude's orange (#d97757), muted for panel fills.
-// Assistant: warm gray. User: dark orange-brown. Edges use the same colors.
-const ASSISTANT_BG = '#2a2725'
-const USER_BG = '#4a3226'
-const ERROR = '#e07a6a'
-const TAG = '#8a7d74'
-const ADDED = '#9fb87a'
+// Warm palettes near Claude's orange (#d97757), muted for panel fills.
+// Assistant: warm gray. User: orange-brown, pale in the light palette.
+// Edges use the fill colors. `userText` is the user panel's text, which the
+// mod draws itself; the assistant panel's text is the engine's Markdown, in
+// the theme's own text color.
+type Scheme = 'light' | 'dark'
+type Palette = { assistant: string; user: string; userText: string; error: string; tag: string; added: string }
+
+const PALETTES: Record<Scheme, Palette> = {
+  dark: { assistant: '#2a2725', user: '#4a3226', userText: '#efe6df', error: '#e07a6a', tag: '#8a7d74', added: '#9fb87a' },
+  light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', error: '#b0442f', tag: '#76685e', added: '#4f7428' },
+}
 
 // An expanded tool row (ctrl+o, --verbose, an errored call) shows this much of
 // its input and output before a click reveals the rest.
@@ -25,6 +30,35 @@ const OUTPUT_PREVIEW = 12
 // the engine's gray. The engine's bottom padding row is covered by an
 // absolute Box one row below.
 const PLAIN = 'plain'
+
+const scheme = atom({ plugin: 'message-panels', key: 'scheme' } as const, 'dark' as Scheme, { shape: 'scheme-1' })
+
+/**
+ * Light or dark, from the `theme` setting. `auto` follows the terminal's
+ * background, which the mod API does not expose, so the mod reads the macOS
+ * appearance instead. Where that read fails (not macOS), the palette is dark.
+ */
+async function detectScheme($: EngineInterface): Promise<Scheme> {
+  const row = (await $.config.list()).find(r => r.key === 'theme')
+  const value = typeof row?.value === 'string' ? row.value : 'auto'
+  if (value.startsWith('light')) return 'light'
+  if (value.startsWith('dark')) return 'dark'
+  try {
+    const { exitCode, stdout } = await $.process.run(['defaults', 'read', '-g', 'AppleInterfaceStyle'], { timeoutMs: 2000 })
+    return exitCode === 0 && /dark/i.test(stdout) ? 'dark' : 'light'
+  } catch {
+    return 'dark'
+  }
+}
+
+async function refreshScheme($: EngineInterface): Promise<void> {
+  const next = await detectScheme($)
+  await update($, scheme, () => next)
+}
+
+async function palette($: EngineInterface): Promise<Palette> {
+  return PALETTES[await read($, scheme)]
+}
 
 const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {} as Record<string, boolean>, { shape: 'revealed-1' })
 
@@ -118,7 +152,7 @@ function cap({ Box, Text }: Elements, color: string, glyphs: { left: string; fil
  * a row leave one row of the terminal's background between their fills, and a
  * tool line or Claude Code's own rows sit half a row from a fill.
  */
-function panel(elements: Elements, color: string, body: unknown, tag?: string) {
+function panel(elements: Elements, color: string, tagColor: string, body: unknown, tag?: string) {
   const { Box, Text } = elements
   // The bottom cap sits outside the clipping Box: the edge columns run past
   // their own Box's bottom, and only the parent's overflow cuts them off.
@@ -137,7 +171,7 @@ function panel(elements: Elements, color: string, body: unknown, tag?: string) {
         </Box>
         {tag ? (
           <Box position="absolute" right={3} top={0}>
-            <Text color={TAG}> {tag} </Text>
+            <Text color={tagColor}> {tag} </Text>
           </Box>
         ) : null}
       </Box>
@@ -220,12 +254,12 @@ function inputLines(tool: string, input: unknown): string[] {
 
 type Hunk = { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] }
 
-function patchLines(hunks: Hunk[]): Line[] {
+function patchLines(hunks: Hunk[], colors: Palette): Line[] {
   const out: Line[] = []
   for (const hunk of hunks) {
-    out.push({ text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`, color: TAG })
+    out.push({ text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`, color: colors.tag })
     for (const line of hunk.lines) {
-      out.push({ text: line, color: line.startsWith('+') ? ADDED : line.startsWith('-') ? ERROR : undefined })
+      out.push({ text: line, color: line.startsWith('+') ? colors.added : line.startsWith('-') ? colors.error : undefined })
     }
   }
   return out
@@ -236,9 +270,9 @@ function patchLines(hunks: Hunk[]): Line[] {
  * content, an Edit's or Write's patch, a plugin tool's text blocks, and JSON
  * for anything else. An errored call's result is the error text.
  */
-function outputLines(output: unknown, errored: boolean): Line[] {
+function outputLines(output: unknown, errored: boolean, colors: Palette): Line[] {
   if (output === undefined || output === null) return []
-  if (typeof output === 'string') return plain(output, errored ? ERROR : undefined)
+  if (typeof output === 'string') return plain(output, errored ? colors.error : undefined)
   if (Array.isArray(output)) {
     return output.flatMap(block => {
       const b = block as { type?: unknown; text?: unknown }
@@ -253,11 +287,11 @@ function outputLines(output: unknown, errored: boolean): Line[] {
     const out: Line[] = []
     if (r.isImage) out.push({ text: '[image]' })
     else if (typeof r.stdout === 'string' && r.stdout.trim()) out.push(...plain(r.stdout))
-    if (typeof r.stderr === 'string' && r.stderr.trim()) out.push(...plain(r.stderr, ERROR))
-    if (typeof r.backgroundTaskId === 'string') out.push({ text: `running in background · ${r.backgroundTaskId}`, color: TAG })
+    if (typeof r.stderr === 'string' && r.stderr.trim()) out.push(...plain(r.stderr, colors.error))
+    if (typeof r.backgroundTaskId === 'string') out.push({ text: `running in background · ${r.backgroundTaskId}`, color: colors.tag })
     return out
   }
-  if (Array.isArray(r.structuredPatch) && r.structuredPatch.length > 0) return patchLines(r.structuredPatch as Hunk[])
+  if (Array.isArray(r.structuredPatch) && r.structuredPatch.length > 0) return patchLines(r.structuredPatch as Hunk[], colors)
   if (r.file && typeof r.file === 'object') {
     const file = r.file as Record<string, unknown>
     if (typeof file.content === 'string') {
@@ -283,6 +317,20 @@ function holdsEngine(node: unknown): boolean {
 
 
 export const register: Register = on => {
+  // The palette follows the theme: read at start and on every reload, and
+  // again when the person changes the theme.
+  on('session.start', async ($, e, next) => {
+    const result = await next(e)
+    await refreshScheme($)
+    return result
+  })
+
+  on('config.set', { key: 'theme' }, async ($, e, next) => {
+    const result = await next(e)
+    await refreshScheme($)
+    return result
+  })
+
   // The body is another mod's tree where one beneath drew one (code-brackets),
   // else Markdown from the text: the engine's row adds the ⏺ bullet, its indent
   // column and a top margin, and may not sit under `overflow`. A summary block
@@ -292,9 +340,10 @@ export const register: Register = on => {
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const elements = $.ui.resolve(e)
+    const colors = await palette($)
     const drawn = await next(e)
     const body = holdsEngine(drawn) ? <elements.Markdown text={e.props.text} /> : drawn
-    return panel(elements, ASSISTANT_BG, body, e.props.isSummary ? 'summary' : undefined)
+    return panel(elements, colors.assistant, colors.tag, body, e.props.isSummary ? 'summary' : undefined)
   })
 
   // Drawn from the text, not wrapped: the engine's row paints its own gray.
@@ -313,7 +362,8 @@ export const register: Register = on => {
       )
     }
     if (e.props.origin.kind !== 'composer') return next(e)
-    return panel(elements, USER_BG, <elements.Text color="#efe6df">{e.props.text}</elements.Text>)
+    const colors = await palette($)
+    return panel(elements, colors.user, colors.tag, <elements.Text color={colors.userText}>{e.props.text}</elements.Text>)
   })
 
   // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the
@@ -334,9 +384,10 @@ export const register: Register = on => {
   on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
     if (e.surface !== 'terminal') return next(e)
     const { Box, Text, Markdown } = $.ui.resolve(e)
+    const colors = await palette($)
     return (
       <Box paddingLeft={3} flexDirection="column">
-        {e.props.isErrored ? <Text color={ERROR}>{e.props.text}</Text> : <Markdown text={e.props.text} dimColor />}
+        {e.props.isErrored ? <Text color={colors.error}>{e.props.text}</Text> : <Markdown text={e.props.text} dimColor />}
       </Box>
     )
   })
@@ -352,9 +403,10 @@ export const register: Register = on => {
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = (e.viewport?.columns ?? 100) - 4
     const failed = p.isErrored || p.isInterrupted
+    const colors = await palette($)
     const context = await pathContext($)
     const head = (
-      <Text dimColor color={failed ? ERROR : undefined} wrap="truncate-end">
+      <Text dimColor color={failed ? colors.error : undefined} wrap="truncate-end">
         {label(p.tool, p.input, width, context)}
         {p.isRunning ? ' …' : ''}
       </Text>
@@ -365,7 +417,7 @@ export const register: Register = on => {
     const id = p.tool_use_id
     const open = (await read($, revealed))[id] === true
     const input = inputLines(p.tool, p.input)
-    const output = outputLines(p.output, failed)
+    const output = outputLines(p.output, failed, colors)
     const inputShown = open ? input : input.slice(0, INPUT_PREVIEW)
     const outputShown = open ? output : output.slice(0, OUTPUT_PREVIEW)
     const hidden = input.length - inputShown.length + output.length - outputShown.length
@@ -375,14 +427,14 @@ export const register: Register = on => {
         <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
         <Box flexDirection="column" paddingLeft={2}>
           {inputShown.map(text => (
-            <Text color={TAG} wrap={open ? 'wrap' : 'truncate-end'}>{text}</Text>
+            <Text color={colors.tag} wrap={open ? 'wrap' : 'truncate-end'}>{text}</Text>
           ))}
           {outputShown.map(line => (
             <Text dimColor={!line.color} color={line.color} wrap={open ? 'wrap' : 'truncate-end'}>{line.text}</Text>
           ))}
           {hidden > 0 || open ? (
             <Button key={`reveal-${id}`} plain onPress={() => toggleRevealed($, id)}>
-              <Text color={TAG}>{open ? '▴ less' : `▸ ${hidden} more lines`}</Text>
+              <Text color={colors.tag}>{open ? '▴ less' : `▸ ${hidden} more lines`}</Text>
             </Button>
           ) : null}
         </Box>
@@ -410,10 +462,11 @@ export const register: Register = on => {
     if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
     const context = await pathContext($)
+    const colors = await palette($)
     return (
       <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
-          <Text dimColor color={call.isErrored || call.isInterrupted ? ERROR : undefined} wrap="truncate-end">
+          <Text dimColor color={call.isErrored || call.isInterrupted ? colors.error : undefined} wrap="truncate-end">
             {label(call.tool, call.input, width, context)}
             {call.isRunning ? ' …' : ''}
           </Text>

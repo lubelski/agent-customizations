@@ -49,4 +49,4 @@ A new mod on the same component should follow the same rules.
 
 ## Style
 
-Colors are raw hex values in a warm palette near Claude's orange (`#d97757`), muted for fills. They are constants at the top of each `register.tsx`. Each mod draws for `e.surface === 'terminal'` only and returns `next(e)` elsewhere.
+Colors are raw hex values in a warm palette near Claude's orange (`#d97757`), muted for fills. They are constants at the top of each `register.tsx`. `message-panels` keeps a light and a dark palette and picks one from the `theme` setting. For `auto`, it reads the macOS appearance, since the mod API does not expose the terminal background. Each mod draws for `e.surface === 'terminal'` only and returns `next(e)` elsewhere.
