@@ -49,7 +49,7 @@ A new mod on the same component should follow the same rules.
 
 ## Style
 
-Draw spacing with whole rows and cells (padding and margins), not half-block or other Block Elements glyphs, so older terminals and mobile terminals draw it correctly. `message-panels` keeps half blocks only behind its `compact` spacing option.
+Draw spacing with whole rows and cells (padding and margins), not half-block or other Block Elements glyphs, so older terminals and mobile terminals draw it correctly. `message-panels` is the exception: it draws half blocks by default, and its `fontCompat` option switches to whole rows.
 
 
 Colors are raw hex values in a warm palette near Claude's orange (`#d97757`), muted for fills. They are constants at the top of each `register.tsx`. `message-panels` keeps a light and a dark palette and picks one from the `theme` setting. For `auto`, it reads the macOS appearance, since the mod API does not expose the terminal background. Each mod draws for `e.surface === 'terminal'` only and returns `next(e)` elsewhere.

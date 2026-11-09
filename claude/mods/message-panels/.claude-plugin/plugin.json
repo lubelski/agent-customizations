@@ -1,18 +1,14 @@
 {
   "name": "message-panels",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Shaded assistant and user message panels, and one-line muted tool calls",
   "types": "./types/index.d.ts",
   "userConfig": {
-    "spacing": {
-      "type": "string",
-      "title": "Panel spacing",
-      "description": "compat: whole-row padding and gaps, for any terminal or font. compact: half-block caps and edges, half a row each.",
-      "options": [
-        "compat",
-        "compact"
-      ],
-      "default": "compat"
+    "fontCompat": {
+      "type": "boolean",
+      "title": "Font compatibility",
+      "description": "On: draw panel spacing with whole rows and cells, for any terminal or font. Off: draw half-block caps and edges, which need a font with Block Elements.",
+      "default": false
     }
   }
 }

@@ -164,17 +164,16 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
 type Elements = { Box: any; Text: any }
 
 /**
- * How a panel draws its spacing, from the `spacing` option (`/config`).
- * `compat`: whole rows and cells only, so terminals and fonts without Block
- * Elements draw it the same. `compact`: half-block caps and edges, which take
- * half a row where `compat` takes a whole one.
+ * How a panel draws its spacing, from the `fontCompat` option (`/config`).
+ * Off (the default): half-block caps and edges, which take half a row where
+ * whole rows take one. On: whole rows and cells only, so terminals and fonts
+ * without Block Elements draw it the same.
  */
-type Spacing = 'compat' | 'compact'
-let spacing: Spacing = 'compat'
+let fontCompat = false
 
-/** A panel in the `spacing` mode in use; `gap` is `gapAbove`, which compact ignores. */
+/** A panel in the spacing mode in use; `gap` is `gapAbove`, which compact ignores. */
 function panel(elements: Elements, color: string, body: unknown, gap: number) {
-  return spacing === 'compact' ? compactPanel(elements, color, body) : compatPanel(elements, color, body, gap)
+  return fontCompat ? compatPanel(elements, color, body, gap) : compactPanel(elements, color, body)
 }
 
 /**
@@ -443,7 +442,7 @@ function holdsEngine(node: unknown): boolean {
 
 
 export const register: Register = (on, options) => {
-  spacing = options.spacing === 'compact' ? 'compact' : 'compat'
+  fontCompat = options.fontCompat === true
 
   // The palette follows the theme: read at start and on every reload, again
   // when the person changes the theme, and every few seconds for `auto`.
