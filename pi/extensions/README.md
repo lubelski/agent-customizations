@@ -102,14 +102,14 @@ Set `"showHardwareCursor": true` in `~/.pi/agent/settings.json`. Pi now removes 
 
 Makes tool activity secondary to the assistant's prose while preserving access to its details:
 
-- completed, collapsed tools occupy one muted row: tool name plus a path, command, query, or URL when available; scripts and payloads stay hidden;
+- completed, collapsed tools occupy two muted rows, the same height they had while streaming: tool name plus a path, command, query, or URL when available, then `└` with the last output line;
 - codemode rows list up to three distinct static tool/discovery call names in source order, with repeat counts and `+N more`; narrow widths show fewer names. These are source call sites, not execution counts—loops and branches are not evaluated. Comments/string examples are ignored; dynamic calls and unparseable/oversized scripts fall back gracefully;
-- clicking that row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
+- clicking either row or using Pi's native expand shortcut opens a ten-row text preview, plus the summary and control rows;
 - click `+10 more` to grow the preview incrementally, or `show all` to restore native full output (including images);
 - click the summary again to collapse; reopening starts at ten rows, and preview-body clicks do not unexpectedly change its size;
 - `/tool-detail more|all|collapse` controls the last opened/clicked tool; Ctrl+O followed by this command provides a keyboard path (when opening several tools, it targets the last one);
 - image output stays hidden until `show all`, so image escape sequences are never clipped;
-- running tools retain their native previews;
+- running tools use the two-row streaming view below;
 - tool titles and output use the theme's dim text color;
 - failed tools use an error-colored row with a failure marker;
 - saved results and model context are unchanged.
@@ -126,7 +126,7 @@ While a tool call streams in and runs, it stays exactly two rows, so the transcr
 └ return [a, b];
 ```
 
-The first row is the summary. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it collapses to the usual one row.
+The first row is the summary. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it keeps the same two rows, with the `└` row showing the last output line.
 
 ## `session-rename.ts`
 
