@@ -1,4 +1,6 @@
 import {
+	getLanguageFromPath,
+	highlightCode,
 	Theme,
 	ToolExecutionComponent,
 	type ExtensionAPI,
@@ -91,6 +93,56 @@ export function toolSummary(name: string, args: Record<string, unknown>, failed:
 	return `${failed ? "✗" : "›"} ${clean(name)}${target ? ` · ${clean(target)}` : ""}${failed ? " · failed" : ""}`;
 }
 
+/** The argument that streams in: what a pending tool is about to run or write. */
+export function streamingPayload(name: string, args: Record<string, unknown>): { text: string; lang?: string } {
+	const path = typeof args.path === "string" ? args.path : typeof args.file_path === "string" ? args.file_path : undefined;
+	const fromPath = path ? getLanguageFromPath(path) : undefined;
+	if (typeof args.code === "string") return { text: args.code, lang: "javascript" };
+	if (typeof args.command === "string") return { text: args.command, lang: "bash" };
+	if (typeof args.content === "string") return { text: args.content, lang: fromPath };
+	if (Array.isArray(args.edits)) {
+		const text = args.edits.map(edit => typeof edit?.newText === "string" ? edit.newText : "").filter(Boolean).join("\n");
+		if (text) return { text, lang: fromPath };
+	}
+	return { text: JSON.stringify(args, null, 2) ?? "", lang: "json" };
+}
+
+const streamingOpen = new WeakSet<object>();
+
+function highlighted(text: string, lang?: string): string[] {
+	try { return lang ? highlightCode(text, lang) : text.split("\n"); }
+	catch { return text.split("\n"); }
+}
+
+/**
+ * A pending tool keeps a fixed two-row height: its summary, then a dim └ with
+ * the latest streamed line (output once it runs). Clicking opens it to watch
+ * the whole payload stream; it collapses to one row when it completes.
+ */
+function renderPending(tool: ToolComponent, width: number): string[] {
+	const theme = currentTheme!();
+	const name = tool.toolName ?? "tool";
+	const args = tool.args ?? {};
+	const header = theme.fg("dim", truncateToWidth(toolSummary(name, args, false, width), width));
+	const payload = streamingPayload(name, args);
+	const lines = payload.text.trim() ? highlighted(payload.text.replace(/\s+$/, ""), payload.lang) : [];
+	const output = (tool.result as { content?: { type: string; text?: string }[] } | undefined)?.content
+		?.filter(part => part.type === "text" && part.text).map(part => part.text!).join("\n").replace(/\s+$/, "").split("\n")
+		.map(line => theme.fg("dim", stripTerminalSequences(line))) ?? [];
+	const body = [...lines, ...output.filter(line => stripTerminalSequences(line).trim())];
+	const inner = Math.max(1, width - 2);
+	const row = (bracket: string, line = "") => theme.fg("dim", bracket + " ") + truncateToWidth(line, inner);
+	if (!streamingOpen.has(tool)) {
+		// Prefer a line with words over a lone closing bracket.
+		const reversed = [...body].reverse();
+		const tail = reversed.find(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)))
+			?? reversed.find(line => stripTerminalSequences(line).trim()) ?? "";
+		return [header, row("└", tail)];
+	}
+	if (!body.length) return [header, row("└")];
+	return [header, ...body.map((line, index) => row(index === body.length - 1 ? "└" : "│", line))];
+}
+
 const ORIGINAL_RENDER = Symbol.for("will.pi.recessed-tools.original-render");
 const WRAPPED_RENDER = Symbol.for("will.pi.recessed-tools.wrapped-render");
 const ORIGINAL_BG = Symbol.for("will.pi.recessed-tools.original-bg");
@@ -159,7 +211,8 @@ function patchToolHeight(): void {
 		return renderTool.call(this, width - 1, 1).map(line => ` ${line}`);
 	};
 	const renderTool = function (this: ToolComponent, width: number, offset: number): string[] {
-		if (!completed(this)) return original.call(this, width);
+		if (!completed(this)) return currentTheme && this.isPartial !== false && width > 2
+			? renderPending(this, width) : original.call(this, width);
 		if (width <= 0) return [];
 		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
 		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
@@ -189,7 +242,13 @@ function patchToolHeight(): void {
 	// and drags remain available for selection rather than suddenly expanding.
 	const originalMouse = currentBase(target, target.handleMouse, ORIGINAL_MOUSE, WRAPPED_MOUSE);
 	const mouse = function (this: ToolComponent, event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (!completed(this)) return originalMouse.call(this, event);
+		if (!completed(this)) {
+			if (!currentTheme || this.isPartial === false) return originalMouse.call(this, event);
+			if (event.type !== "click" || event.button !== "left") return undefined;
+			if (streamingOpen.has(this)) streamingOpen.delete(this); else streamingOpen.add(this);
+			this.ui?.requestRender();
+			return { handled: true };
+		}
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		selected = new WeakRef(this);
 		if (event.y === 0) {

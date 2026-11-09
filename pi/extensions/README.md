@@ -114,7 +114,19 @@ Makes tool activity secondary to the assistant's prose while preserving access t
 - failed tools use an error-colored row with a failure marker;
 - saved results and model context are unchanged.
 
-This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Completed tools own their header/control hit areas; previews use native text components without images, and full disclosure uses native rendering. Running tools retain native input. Reloading does not stack the wrappers.
+This uses a guarded component render/input patch because tool renderers alone do not control Pi's separately appended images. Completed tools own their header/control hit areas; previews use native text components without images, and full disclosure uses native rendering. Pending and running tools draw their own two rows instead (see below). Reloading does not stack the wrappers.
+
+
+### Streaming tools
+
+While a tool call streams in and runs, it stays exactly two rows, so the transcript does not grow and shrink:
+
+```text
+› codemode · read, bash
+└ return [a, b];
+```
+
+The first row is the summary. The second shows the latest line of the streaming payload (code, command, file content or edit text, else JSON), syntax-highlighted, or the latest output line once it runs. Click the tool to open it and watch the whole payload stream with a `│` rule ending in `└`; click again to close. On completion it collapses to the usual one row.
 
 ## `session-rename.ts`
 
