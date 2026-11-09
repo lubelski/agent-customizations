@@ -2,16 +2,18 @@
 
 ## Installation
 
-Link the theme into Pi's user theme directory:
+Link the themes into Pi's user theme directory:
 
 ```sh
 mkdir -p "$HOME/.pi/agent/themes"
-ln -sfn \
-  "$HOME/dev/agent-customizations/pi/themes/turquoise.json" \
-  "$HOME/.pi/agent/themes/turquoise.json"
+for name in turquoise turquoise-light; do
+  ln -sfn \
+    "$HOME/dev/agent-customizations/pi/themes/$name.json" \
+    "$HOME/.pi/agent/themes/$name.json"
+done
 ```
 
-Select `turquoise` through `/settings`, then run `/reload`.
+Select `turquoise` through `/settings`, or set `"theme": "turquoise-light/turquoise"` to follow the terminal's appearance, then run `/reload`.
 
 ## `turquoise`
 
@@ -24,5 +26,9 @@ The custom extensions compose with the theme as follows:
 - tool rules mix the theme's `toolPendingBg` and `borderMuted`;
 - footer run state uses the theme's teal `accent`;
 - ordinary footer text uses the theme's neutral `text` and `dim` colors.
+
+## `turquoise-light`
+
+The light counterpart, based on Pi's built-in light palette with the same violet-to-turquoise substitutions. Panels are pale tints, and the thinking-level ramp runs from light gray through pale teal to green.
 
 Unlike Pi's `system` theme, this palette is Pi-specific and does not derive hues from the terminal's ANSI colors.
