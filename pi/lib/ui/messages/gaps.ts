@@ -9,8 +9,11 @@ import { Container, stripTerminalSequences } from "@earendil-works/pi-tui";
  * child's own row mapping shifts by at most its leading-row count.
  */
 
-const BOTTOM_CAP = /^ 🬂+ $/u;
-const TOP_CAP = /^ 🬭+ $/u;
+// Caps may or may not have the gutter yet: Containers inside a message see them before it is added.
+const BOTTOM_CAP = /^ ?🬂+ ?$/u;
+const TOP_CAP = /^ ?🬭+ ?$/u;
+/** Invisible SGR prefix on folded-thinking rows, so they can abut panels too. */
+export const THINKING_MARK = "\x1b[23;23m";
 const ORIGINAL_RENDER = Symbol.for("will.pi.ui.container.original-render");
 const ORIGINAL_MOUSE = Symbol.for("will.pi.ui.container.original-mouse");
 
@@ -21,12 +24,17 @@ type Patched = { children: Child[]; mouseLayout?: Layout; handleInput?: unknown 
 
 const isBottomCap = (line: string) => line.includes("🬂") && BOTTOM_CAP.test(stripTerminalSequences(line));
 const isTopCap = (line: string) => line.includes("🬭") && TOP_CAP.test(stripTerminalSequences(line));
+const isThinking = (line: string) => line.includes(THINKING_MARK);
 const isBlank = (line: string) => stripTerminalSequences(line).trim() === "";
 
-/** Remove blank rows between a bottom cap and the next top cap; returns rows removed from each part's start. */
+/**
+ * Remove blank rows between a bottom cap and the next top cap, or between
+ * thinking and a cap; returns rows removed from each part's start.
+ */
 export function collapsePanelGaps(parts: string[][]): number[] {
 	const skips = parts.map(() => 0);
 	let capPart = -1;
+	let afterThinking = false;
 	let pending: [number, number][] = [];
 	for (let part = 0; part < parts.length; part++) {
 		const lines = parts[part]!;
@@ -34,13 +42,15 @@ export function collapsePanelGaps(parts: string[][]): number[] {
 			const line = lines[row]!;
 			if (capPart >= 0 && isBlank(line)) { pending.push([part, row]); continue; }
 			// Gaps inside one component would shift its own mouse rows; leave them.
-			if (pending.length && part !== capPart && isTopCap(line)) {
+			const abuts = isTopCap(line) || (!afterThinking && isThinking(line));
+			if (pending.length && part !== capPart && abuts) {
 				for (const [p, r] of [...pending].reverse()) parts[p]!.splice(r, 1);
 				for (const [p] of pending) if (p !== capPart) skips[p]!++;
 				row -= pending.filter(([p]) => p === part).length;
 			}
 			pending = [];
-			capPart = isBottomCap(line) ? part : -1;
+			afterThinking = isThinking(line);
+			capPart = isBottomCap(line) || afterThinking ? part : -1;
 		}
 	}
 	return skips;
