@@ -15,6 +15,9 @@ const requireDependency = createRequire(realpathSync(fileURLToPath(import.meta.u
 const { parse } = requireDependency("acorn") as typeof import("acorn");
 const { simple } = requireDependency("acorn-walk") as typeof import("acorn-walk");
 
+/** Compatible message panels sit one column in; tools follow the same left edge. */
+let indented: () => boolean = () => false;
+
 const discoveryCalls = new Set(["searchTools", "describeTool", "describeNamespace"]);
 const scriptCache = new WeakMap<object, { code: unknown; labels: string[] }>();
 
@@ -152,6 +155,10 @@ function patchToolHeight(): void {
 	setPatch(target, ORIGINAL_EXPAND, WRAPPED_EXPAND, originalExpand, expand);
 	target.setExpanded = expand;
 	const wrapper = function (this: ToolComponent, width: number): string[] {
+		if (!indented() || width < 2) return renderTool.call(this, width, 0);
+		return renderTool.call(this, width - 1, 1).map(line => ` ${line}`);
+	};
+	const renderTool = function (this: ToolComponent, width: number, offset: number): string[] {
 		if (!completed(this)) return original.call(this, width);
 		if (width <= 0) return [];
 		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width);
@@ -171,7 +178,7 @@ function patchToolHeight(): void {
 		const hiddenImages = state.limit !== Infinity && !!images?.length;
 		state.hasMore = remaining > 0 || hiddenImages || (state.limit !== Infinity && !textComponent);
 		const more = `+10 more (${remaining} rows)`;
-		state.allColumn = remaining > 0 ? more.length + 3 : 0;
+		state.allColumn = remaining > 0 ? offset + more.length + 3 : 0;
 		const controls = remaining > 0 ? `${more} · show all` : state.hasMore
 			? `show all${hiddenImages ? " (images)" : ""}` : "collapse";
 		state.controlRow = shown.length + 1;
@@ -237,7 +244,8 @@ function patchToolColors(): void {
 	target.fg = fgWrapper;
 }
 
-export default function (pi: ExtensionAPI): void {
+export default function (pi: ExtensionAPI, indent: () => boolean = () => false): void {
+	indented = indent;
 	patchToolHeight();
 	patchToolColors();
 

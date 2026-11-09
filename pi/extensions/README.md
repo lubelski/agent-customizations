@@ -35,7 +35,7 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout: one uncolored gap column, then one column of panel padding, on each side, with no special block/sextant glyphs. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
+Existing tools and commands are preserved. Message panels now default to a compatible rectangular layout: one uncolored gap column, then one column of panel padding, on each side, with no special block/sextant glyphs. Tool rows are indented one column to share the panels' left edge. The previous Unicode panel treatment is explicitly opt-in. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
 ### Presets and individual controls
 
