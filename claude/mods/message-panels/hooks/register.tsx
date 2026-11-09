@@ -180,6 +180,27 @@ async function copyText($: EngineInterface, text: string, surface: UiPressArgume
   $.ui.toast(copied.isCopied ? 'Copied' : 'Could not copy message')
 }
 
+// The copy target: the last 4 cells of the panel's top edge, above the fill's
+// last 4 columns. At rest they draw as the edge does; under the pointer the
+// word swaps in. A hover can restyle a label but not change its text, so the
+// word is a second Button, drawn `display: none` until its keyed Box is hovered.
+const COPY_LABEL = 'COPY'
+
+function copyCell({ Box, Text, Button }: Elements, color: string, rest: { text: string; fill?: string }, copy: Copy) {
+  return (
+    <Box key="copy-cell" width={COPY_LABEL.length} height={1} flexShrink={0}>
+      <Button key="copy" plain onPress={copy}>
+        <Text color={color} backgroundColor={rest.fill}>{rest.text}</Text>
+      </Button>
+      <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }}>
+        <Button key="copy-label" plain onPress={copy}>
+          <Text bold backgroundColor={color}>{COPY_LABEL}</Text>
+        </Button>
+      </Box>
+    </Box>
+  )
+}
+
 /**
  * A panel in the spacing mode in use; `gap` is `gapAbove`, which compact
  * ignores. With `copy`, the panel's top-right cell is a Button that copies it.
@@ -196,15 +217,15 @@ function panel(elements: Elements, color: string, body: unknown, gap: number, co
  * not a panel (gapAbove), so two panels in a row share one blank row. A tool
  * line or the turn line under a panel needs no gap of its own.
  */
-function compatPanel({ Box, Button }: Elements, color: string, body: unknown, gap: number, copy?: Copy) {
-  // The copy cell is the fill's top-right cell, in the top padding row.
+function compatPanel({ Box, Text, Button }: Elements, color: string, body: unknown, gap: number, copy?: Copy) {
+  // The copy cells are the last 4 cells of the fill's top padding row.
   return (
     <Box flexDirection="column" marginTop={gap} marginBottom={1}>
       <Box backgroundColor={color} marginX={1} paddingX={1} paddingY={1} flexDirection="column">
         {body}
         {copy && (
-          <Box position="absolute" top={0} right={0} width={1} height={1} backgroundColor={color}>
-            <Button key="copy" plain label=" " onPress={copy} />
+          <Box position="absolute" top={0} right={0}>
+            {copyCell({ Box, Text, Button }, color, { text: ' '.repeat(COPY_LABEL.length), fill: color }, copy)}
           </Box>
         )}
       </Box>
@@ -226,21 +247,17 @@ const RIGHT_EDGE = '▌\n'.repeat(500)
 const TOP_CAP = { left: '▗', fill: '▄'.repeat(500), right: '▖' }
 const BOTTOM_CAP = { left: '▝', fill: '▀'.repeat(500), right: '▘' }
 
-function cap({ Box, Text, Button }: Elements, color: string, glyphs: { left: string; fill: string; right: string }, copy?: Copy) {
-  // With `copy`, the right corner glyph is the Button that copies the panel.
+function cap(elements: Elements, color: string, glyphs: { left: string; fill: string; right: string }, copy?: Copy) {
+  const { Box, Text } = elements
+  // With `copy`, the last 4 fill cells before the corner are the copy cells.
   return (
     <Box height={1} overflow="hidden">
       <Text color={color}>{glyphs.left}</Text>
       <Box flexGrow={1} flexShrink={1} height={1} overflow="hidden">
         <Text color={color}>{glyphs.fill}</Text>
       </Box>
-      {copy ? (
-        <Button key="copy" plain onPress={copy}>
-          <Text color={color}>{glyphs.right}</Text>
-        </Button>
-      ) : (
-        <Text color={color}>{glyphs.right}</Text>
-      )}
+      {copy && copyCell(elements, color, { text: glyphs.fill.slice(0, COPY_LABEL.length) }, copy)}
+      <Text color={color}>{glyphs.right}</Text>
     </Box>
   )
 }
