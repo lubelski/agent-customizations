@@ -17,7 +17,7 @@ const requireDependency = createRequire(realpathSync(fileURLToPath(import.meta.u
 const { parse } = requireDependency("acorn") as typeof import("acorn");
 const { simple } = requireDependency("acorn-walk") as typeof import("acorn-walk");
 
-/** Compatible message panels sit one column in; tools follow the same left edge. */
+/** Message text sits two columns in (gap plus padding); tools follow the same left edge. */
 let indented: () => boolean = () => false;
 
 const discoveryCalls = new Set(["searchTools", "describeTool", "describeNamespace"]);
@@ -207,8 +207,9 @@ function patchToolHeight(): void {
 	setPatch(target, ORIGINAL_EXPAND, WRAPPED_EXPAND, originalExpand, expand);
 	target.setExpanded = expand;
 	const wrapper = function (this: ToolComponent, width: number): string[] {
-		if (!indented() || width < 2) return renderTool.call(this, width, 0);
-		return renderTool.call(this, width - 1, 1).map(line => ` ${line}`);
+		// Two columns: the panels' gap column plus their padding, so tool text lines up with message text.
+		if (!indented() || width < 3) return renderTool.call(this, width, 0);
+		return renderTool.call(this, width - 2, 2).map(line => `  ${line}`);
 	};
 	const renderTool = function (this: ToolComponent, width: number, offset: number): string[] {
 		if (!completed(this)) return currentTheme && this.isPartial !== false && width > 2

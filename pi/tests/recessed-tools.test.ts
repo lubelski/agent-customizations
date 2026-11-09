@@ -105,7 +105,7 @@ test("completed tools are one row, with native details and accurate mouse expans
 	assert.equal(toolSummary("mcp__server__tool", {}, false), "› mcp__server__tool");
 });
 
-test("compatible layout indents tool rows one column to align with message panels", async () => {
+test("tool rows are indented two columns to align with message text", async () => {
 	const { default: extension } = await jiti.import("../lib/ui/tools.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 	const { stripTerminalSequences, visibleWidth } = tuiModule;
@@ -117,10 +117,10 @@ test("compatible layout indents tool rows one column to align with message panel
 	handlers.get("session_start")({}, { mode: "tui", ui: { get theme() { return themeModule.theme; }, setStatus() {} } });
 	const tool = new ToolExecutionComponent("bash", "id", { command: "ls" }, {}, undefined, { requestRender() {} });
 	tool.updateResult({ content: [{ type: "text", text: "a\nb" }], details: undefined, isError: false }, false);
-	assert.equal(stripTerminalSequences(tool.render(80)[0]), " › bash · ls");
+	assert.equal(stripTerminalSequences(tool.render(80)[0]), "  › bash · ls");
 	tool.setExpanded(true);
 	for (const line of tool.render(40)) {
-		assert.ok(stripTerminalSequences(line).startsWith(" "));
+		assert.ok(stripTerminalSequences(line).startsWith("  "));
 		assert.ok(visibleWidth(line) <= 40);
 	}
 	indent = false;

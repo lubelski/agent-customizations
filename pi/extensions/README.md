@@ -35,7 +35,7 @@ One entry point coordinates internal modules under `lib/ui/`:
 - `tools.ts`: compact tool summaries and disclosure.
 - `settings.ts`: shared persistent preferences, read on session start and updated by commands.
 
-Existing tools and commands are preserved. Message panels sit one uncolored gap column in from each side and keep one column of padding inside. Their top and bottom padding are thin sextant caps by default; font compatibility swaps those for whole blank rows, which take more space but render in any font. Tool rows are indented one column to share the panels' left edge. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
+Existing tools and commands are preserved. Message panels sit one uncolored gap column in from each side and keep one column of padding inside. Their top and bottom padding are thin sextant caps by default; font compatibility swaps those for whole blank rows, which take more space but render in any font. Tool rows and Pi's transcript notices (status, warnings, "Reloaded …") are indented to line up with message text. This setting concerns message panels, not all Unicode in Pi: code brackets and other native UI still use ordinary box-drawing characters.
 
 ### Options
 

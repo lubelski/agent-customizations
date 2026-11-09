@@ -55,7 +55,15 @@ export function collapsePanelGaps(parts: string[][]): number[] {
 	return skips;
 }
 
-/** Install once; active only while `enabled()` (thin caps). Reload-safe. */
+/**
+ * Pi's transcript notices (status, warnings, errors, "Reloaded …") are
+ * ThemedText with one column of padding. One more column aligns them with
+ * message text (gap column plus panel padding). The class is not exported.
+ */
+const indentedText = (child: Child) => (child as { constructor?: { name?: string } }).constructor?.name === "ThemedText"
+	&& (child as { paddingX?: number }).paddingX === 1;
+
+/** Install once; gap collapse is active only while `enabled()` (thin caps). Reload-safe. */
 export function installGapCollapse(enabled: () => boolean): void {
 	const target = Container.prototype as unknown as Patched & Record<PropertyKey, unknown>;
 	const render = (target[ORIGINAL_RENDER] ??= target.render) as (this: Patched, width: number) => string[];
@@ -63,10 +71,11 @@ export function installGapCollapse(enabled: () => boolean): void {
 	const collapsed = new WeakMap<object, Collapsed>();
 	target.render = function (this: Patched, width: number): string[] {
 		collapsed.delete(this);
-		if (!enabled()) return render.call(this, width);
-		const parts = this.children.map(child => child.render(width).slice());
+		if (!enabled() && !this.children.some(indentedText)) return render.call(this, width);
+		const parts = this.children.map(child => indentedText(child) && width > 2
+			? child.render(width - 1).map(line => ` ${line}`) : child.render(width).slice());
 		const full = parts.map(lines => lines.length);
-		const skips = collapsePanelGaps(parts);
+		const skips = enabled() ? collapsePanelGaps(parts) : parts.map(() => 0);
 		this.mouseLayout = { width, children: this.children.map((component, i) => ({ component, height: full[i]! })) };
 		if (parts.some((lines, i) => lines.length !== full[i])) collapsed.set(this, { width, full, shown: parts.map(lines => lines.length), skips });
 		return parts.flat();
