@@ -48,6 +48,11 @@ for (const theme of ["dark", "light"]) {
   fold(component).handleMouse({ type: "click", button: "left" });
   assert.equal(rows(component).filter(line => /word/.test(line)).length, 3);
   assert.equal(fold(component).handleMouse({ type: "scroll" }), undefined);
+  // A fold landing on a paragraph break puts the ellipsis on the last text row.
+  const broken = new AssistantMessageComponent({ content: [{ type: "thinking", thinking: "Line one.\nLine two.\n\nNext paragraph.\n\nMore." }], stopReason: "stop" }, true);
+  const brokenRows = rows(broken).filter(line => line.trim());
+  assert.equal(brokenRows.length, 2);
+  assert.match(brokenRows[1], /Line two\.… $/);
   // Short thinking is not folded and gets no ellipsis.
   const short = new AssistantMessageComponent({ content: [{ type: "thinking", thinking: "Brief." }], stopReason: "stop" }, true);
   assert.doesNotMatch(rows(short).join("\n"), /…/);

@@ -109,11 +109,13 @@ class ThinkingFold {
 		if (state.plain) return lines;
 		if (this.expanded || lines.length <= THINKING_LINES) return lines.map(line => THINKING_MARK + line);
 		const shown = lines.slice(0, THINKING_LINES);
+		// A fold that lands on a paragraph break would leave the ellipsis alone on a blank row.
+		while (shown.length > 1 && !stripTerminalSequences(shown.at(-1)!).trim()) shown.pop();
 		// Ellipsis after the last visible character, inside the right padding column.
-		const last = shown[THINKING_LINES - 1]!.replace(TRAILING_SPACE, "$1");
+		const last = shown.at(-1)!.replace(TRAILING_SPACE, "$1");
 		const fitted = visibleWidth(last) <= width - 2 ? last : truncateToWidth(last, width - 2, "");
 		const ellipsis = activeTheme ? activeTheme.fg("thinkingText", "…") : "…";
-		shown[THINKING_LINES - 1] = fitted + ellipsis;
+		shown[shown.length - 1] = fitted + ellipsis;
 		return shown.map(line => THINKING_MARK + line);
 	}
 	handleMouse(event: { type: string; button?: string }): { handled: true } | undefined {
