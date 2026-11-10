@@ -10,6 +10,13 @@ test('a paste splits from the typed text around it', async () => {
   ])
 })
 
+test('the space typed after a paste is dropped', async () => {
+  expect(segments('<pasted_content id="a">  code</pasted_content id="a"> why?')).toEqual([
+    { kind: 'pasted', text: '  code' },
+    { kind: 'typed', text: 'why?' },
+  ])
+})
+
 test('typed text with no paste is one segment', async () => {
   expect(segments('hello\nthere')).toEqual([{ kind: 'typed', text: 'hello\nthere' }])
 })

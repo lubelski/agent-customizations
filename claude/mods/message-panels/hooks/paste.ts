@@ -6,16 +6,19 @@ export type Segment = { kind: 'typed' | 'pasted'; text: string }
 
 const PASTE = /<pasted_content id="([^"]*)">([\s\S]*?)<\/pasted_content id="\1">/g
 
-/** Blank lines at either end dropped; indentation on the first line kept. */
-function trimLines(text: string): string {
-  return text.replace(/^(\s*\n)+/, '').trimEnd()
+/**
+ * Blank lines at either end dropped. A paste keeps the indentation of its
+ * first line (code), typed text does not (the space typed after a paste).
+ */
+function trimSegment(kind: Segment['kind'], text: string): string {
+  return kind === 'pasted' ? text.replace(/^(\s*\n)+/, '').trimEnd() : text.trim()
 }
 
 /** The prompt split into typed and pasted segments, empty ones dropped. */
 export function segments(text: string): Segment[] {
   const out: Segment[] = []
   const push = (kind: Segment['kind'], raw: string) => {
-    const trimmed = trimLines(raw)
+    const trimmed = trimSegment(kind, raw)
     if (trimmed) out.push({ kind, text: trimmed })
   }
   let at = 0
