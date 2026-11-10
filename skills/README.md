@@ -1,5 +1,9 @@
 # Shared skills
 
+## Raw feedback
+
+[`feedback/balsamiq-mcp.md`](feedback/balsamiq-mcp.md) collects dated Balsamiq observations and candidate lessons for later synthesis. It is not part of the installed skill bundle and need not be read for routine tasks. Preserve the distinction between observed behavior, user feedback, and proposed guidance; promote lessons deliberately rather than expanding the skill after every observation.
+
 ## Balsamiq MCP
 
 [`balsamiq-mcp/`](balsamiq-mcp/SKILL.md) is the canonical, source-controlled skill for Balsamiq work across projects. It includes authoring guidance and reference schemas/examples; it is not Tau-specific.
