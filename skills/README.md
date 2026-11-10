@@ -1,4 +1,34 @@
-# Shared writing skills
+# Shared skills
+
+## Balsamiq MCP
+
+[`balsamiq-mcp/`](balsamiq-mcp/SKILL.md) is the canonical, source-controlled skill for Balsamiq work across projects. It includes authoring guidance and reference schemas/examples; it is not Tau-specific.
+
+The user-level installation at `~/.agents/skills/balsamiq-mcp/` is an ordinary copy, **not a symlink**. Edit and review the repository version first, then explicitly copy the approved version into the installation. Do not automatically deploy on checkout or merge. If installed files have independent changes, reconcile those into source control before replacing them.
+
+To refresh from the repository root after reviewing local differences (this copies the current bundle without deleting extra files):
+
+```bash
+source_dir="$PWD/skills/balsamiq-mcp"
+installed="$HOME/.agents/skills/balsamiq-mcp"
+test -f "$source_dir/SKILL.md" || exit 1
+if [ -L "$installed" ] || { [ -e "$installed" ] && [ ! -d "$installed" ]; }; then
+  printf 'Inspect unexpected installation: %s\n' "$installed" >&2
+  exit 1
+fi
+# Inspect nested symlinks too; do not copy through them.
+if [ -d "$installed" ] && [ -n "$(find "$installed" -type l -print -quit)" ]; then
+  printf 'Installation contains symlinks; inspect before copying.\n' >&2
+  exit 1
+fi
+mkdir -p "$installed"
+cp -R "$source_dir/." "$installed/"
+diff -qr "$source_dir" "$installed"
+```
+
+Review any extra installed files reported by `diff` rather than deleting them blindly. The initial import and copy refresh were explicitly authorized on 2026-11-10. Other skill installation policies below are unchanged.
+
+## Shared writing skills
 
 [avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) is the active trial replacement for `deslop`. Its code is installed from upstream, not vendored in this repository. Both Pi and Claude Code use the same user-level snapshot. No MCP server, npm installation, hooks, or plugin is needed.
 
