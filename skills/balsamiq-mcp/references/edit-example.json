@@ -1,0 +1,36 @@
+{
+  "boardUrl": "REPLACE_WITH_BOARD_URL",
+  "patches": [
+    {
+      "id": "REPLACE_WITH_EXISTING_CONTROL_ID",
+      "props": {
+        "width": 540,
+        "height": 720
+      }
+    }
+  ],
+  "additions": [
+    {
+      "controlType": "rectangle",
+      "x": 0,
+      "y": 0,
+      "width": 68,
+      "height": 50,
+      "zOrder": 1,
+      "backgroundColor": "#EEEEEE",
+      "borderColor": "#111111",
+      "borderStyle": "solid"
+    },
+    {
+      "controlType": "icon",
+      "x": 22,
+      "y": 13,
+      "width": 24,
+      "height": 24,
+      "zOrder": 2,
+      "id": "fa-book-bookmark",
+      "size": 24,
+      "color": "#111111"
+    }
+  ]
+}

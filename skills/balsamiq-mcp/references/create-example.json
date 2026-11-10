@@ -1,0 +1,598 @@
+{
+  "projectUrl": "REPLACE_WITH_PROJECT_URL",
+  "board": {
+    "boardName": "Current — Typesetting",
+    "width": 540,
+    "backgroundColor": "#FFFFFF",
+    "layout": {
+      "direction": "column",
+      "gap": 0
+    },
+    "children": [
+      {
+        "width": 540,
+        "height": 50,
+        "layout": {
+          "direction": "row",
+          "alignItems": "center"
+        },
+        "children": [
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-book-bookmark",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#EEEEEE",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-file-lines",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-gear",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-screwdriver-wrench",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-magnifying-glass",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 132,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-box-archive",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          },
+          {
+            "width": 68,
+            "height": 50,
+            "control": {
+              "controlType": "rectangle",
+              "backgroundColor": "#FFFFFF",
+              "borderStyle": "solid",
+              "borderColor": "#111111"
+            },
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "justifyContent": "center"
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "icon",
+                  "id": "fa-bars",
+                  "size": 24,
+                  "color": "#111111"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Document settings ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          },
+          {
+            "height": 1,
+            "width": 512,
+            "control": {
+              "controlType": "horizontal-line",
+              "color": "#AAAAAA"
+            },
+            "layout": {}
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Style ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Style tweaks (3) ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          },
+          {
+            "height": 1,
+            "width": 512,
+            "control": {
+              "controlType": "horizontal-line",
+              "color": "#AAAAAA"
+            },
+            "layout": {}
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Font: Bitter ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Typography rules: English (US) ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          },
+          {
+            "height": 1,
+            "width": 512,
+            "control": {
+              "controlType": "horizontal-line",
+              "color": "#AAAAAA"
+            },
+            "layout": {}
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Page overlap ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Speed reading module - perception expander ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          },
+          {
+            "height": 1,
+            "width": 512,
+            "control": {
+              "controlType": "horizontal-line",
+              "color": "#AAAAAA"
+            },
+            "layout": {}
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Highlights ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 540,
+        "height": 46,
+        "layout": {
+          "direction": "column",
+          "justifyContent": "space-between"
+        },
+        "children": [
+          {
+            "height": 45,
+            "layout": {
+              "direction": "row",
+              "alignItems": "center",
+              "padding": {
+                "left": 34,
+                "right": 14
+              }
+            },
+            "children": [
+              {
+                "control": {
+                  "controlType": "text",
+                  "text": "Text selection tools ▸",
+                  "textColor": "#111111",
+                  "fontSize": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "height": 44,
+        "width": 540,
+        "layout": {
+          "direction": "row",
+          "justifyContent": "space-between",
+          "alignItems": "center",
+          "padding": {
+            "left": 30,
+            "right": 20
+          }
+        },
+        "children": [
+          {
+            "control": {
+              "controlType": "icon",
+              "id": "fa-chevron-up",
+              "size": 24
+            }
+          },
+          {
+            "control": {
+              "controlType": "text",
+              "text": "22:04   ▰ 78%",
+              "textColor": "#111111",
+              "fontSize": 16
+            }
+          }
+        ]
+      },
+      {
+        "height": 1,
+        "width": 540,
+        "control": {
+          "controlType": "horizontal-line",
+          "color": "#111111"
+        }
+      },
+      {
+        "height": 191,
+        "width": 540
+      },
+      {
+        "height": 20,
+        "width": 540,
+        "layout": {
+          "direction": "row",
+          "alignItems": "center",
+          "gap": 10,
+          "padding": {
+            "left": 10,
+            "right": 10
+          }
+        },
+        "children": [
+          {
+            "control": {
+              "controlType": "progress-bar",
+              "value": 0.042,
+              "color": "#333333",
+              "style": "thin"
+            },
+            "width": 455,
+            "height": 10
+          },
+          {
+            "control": {
+              "controlType": "text",
+              "text": "50 / 1198",
+              "textColor": "#111111",
+              "fontSize": 12
+            }
+          }
+        ]
+      },
+      {
+        "control": {
+          "controlType": "sticky-note",
+          "text": "TYPESETTING · tab 2\nCurrent desktop EPUB menu.\nBook settings, defaults, CSS, fonts and typography share this list.\nExperimental appearance plugin omitted: this is the baseline.\n\nTabs are icon-only in the app. Icons approximated with Font Awesome. Based on captured native emulator menus; spacing is schematic. Submenus replace the list rather than stacking.",
+          "backgroundColor": "#FFF2CC"
+        },
+        "width": 400,
+        "height": 240
+      }
+    ]
+  }
+}
