@@ -2,18 +2,20 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
 import { fitPath, shortenPath } from './paths'
 import type { PathContext } from './paths'
+import { segments, unwrapPastes } from './paste'
 
 // Warm palettes near Claude's orange (#d97757), muted for panel fills.
 // Assistant: warm gray. User: orange-brown, pale in the light palette.
 // `userText` is the user panel's text, which the
 // mod draws itself; the assistant panel's text is the engine's Markdown, in
-// the theme's own text color.
+// the theme's own text color. `quote` is the bar beside pasted text in a
+// user panel.
 type Scheme = 'light' | 'dark'
-type Palette = { assistant: string; user: string; userText: string; error: string; tag: string; added: string }
+type Palette = { assistant: string; user: string; userText: string; quote: string; error: string; tag: string; added: string }
 
 const PALETTES: Record<Scheme, Palette> = {
-  dark: { assistant: '#2a2725', user: '#4a3226', userText: '#efe6df', error: '#e07a6a', tag: '#8a7d74', added: '#9fb87a' },
-  light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', error: '#b0442f', tag: '#76685e', added: '#4f7428' },
+  dark: { assistant: '#2a2725', user: '#4a3226', userText: '#efe6df', quote: '#a87a62', error: '#e07a6a', tag: '#8a7d74', added: '#9fb87a' },
+  light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', quote: '#c4906f', error: '#b0442f', tag: '#76685e', added: '#4f7428' },
 }
 
 // An expanded tool row (ctrl+o, --verbose, an errored call) shows this much of
@@ -100,7 +102,7 @@ function clampLines(text: string, width: number, max: number): string[] {
     }
   }
   if (lines.length < max && line) return [...lines, line]
-  const last = lines[max - 1]
+  const last = lines[max - 1] ?? ''
   const room = Math.max(1, width - 1)
   lines[max - 1] = (last.length > room ? last.slice(0, room) : last).trimEnd() + '…'
   return lines
@@ -239,6 +241,40 @@ function compatPanel({ Box, Text, Button }: Elements, color: string, body: unkno
 // itself.
 const LEFT_EDGE = '▐\n'.repeat(500)
 const RIGHT_EDGE = '▌\n'.repeat(500)
+
+// The bar beside pasted text: a column of box-drawing lines, clipped by its
+// parent to the paste's height, as the panel's edges are.
+const QUOTE_BAR = '│\n'.repeat(500)
+
+/**
+ * A user panel's body: typed text as written, and each paste as a quote
+ * block, a bar down its left side and its text dim, one blank row between.
+ */
+function promptBody({ Box, Text }: Elements, colors: Palette, text: string) {
+  return (
+    <Box flexDirection="column">
+      {segments(text).map((segment, i) => {
+        const { kind, text: words } = segment
+
+        if (kind === 'typed') {
+          return (
+            <Box key={String(i)} marginTop={i > 0 ? 1 : 0}>
+              <Text color={colors.userText}>{words}</Text>
+            </Box>
+          )
+        }
+        return (
+          <Box key={String(i)} marginTop={i > 0 ? 1 : 0} paddingLeft={2} overflow="hidden">
+            <Text color={colors.userText} dimColor>{words}</Text>
+            <Box position="absolute" left={0} top={0} bottom={0} width={1}>
+              <Text color={colors.quote}>{QUOTE_BAR}</Text>
+            </Box>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
 
 // Compact: the panel's caps, half-height rows in the fill's color on the
 // terminal's own background, in place of a full padding row. The top cap
@@ -557,8 +593,8 @@ export const register: Register = (on, options) => {
     if (e.props.origin.kind !== 'composer') return next(e)
     const colors = await palette($)
     const text = e.props.text
-    const copy: Copy = press => copyText($, text, press.surface)
-    return panel(elements, colors.user, <elements.Text color={colors.userText}>{text}</elements.Text>, gapAbove(e.requestId), copy)
+    const copy: Copy = press => copyText($, unwrapPastes(text), press.surface)
+    return panel(elements, colors.user, promptBody(elements, colors, text), gapAbove(e.requestId), copy)
   })
 
   // The line that closes a turn (`Baked for 3s · done 4:55 PM`) is the

@@ -5,7 +5,7 @@ Draws the Claude Code transcript in the style of `pi-customizations`' `assistant
 ## What it changes
 
 - **Assistant replies** draw as Markdown in a warm gray panel (`#2a2725`). The panel has no `⏺` bullet and no indent column.
-- **Typed prompts** draw in a dark orange-brown panel (`#4a3226`) with warm off-white text (`#efe6df`). Other user-side rows keep Claude Code's drawing: task notifications, and messages from other agents or sessions.
+- **Typed prompts** draw in a dark orange-brown panel (`#4a3226`) with warm off-white text (`#efe6df`). Pasted text draws as a quote block: a `│` bar down its left side in `#a87a62`, its text dim, and one blank row between it and the typed text. The COPY target copies the prompt without the engine's `<pasted_content>` tags. Other user-side rows keep Claude Code's drawing: task notifications, and messages from other agents or sessions.
 - **Panel spacing.** The `fontCompat` option in `/config` picks one of two layouts. Each panel's fill is inset one cell from each side of the row, and the text has one cell of fill on each side.
   - Off (the default): half-height caps above and below the text (`▄` and `▀`, with quadrant corners `▗ ▖ ▝ ▘`) and half-block side edges (`▐`, `▌`) in place of whole rows. The caps are the whole spacing, so two panels leave one row between their fills, half from each cap. This needs a font that has Block Elements.
   - On: one row of fill above and below the text, and one blank row outside the panel. Every edge is a whole row or cell, so older terminals, mobile terminals and simple fonts draw it correctly.
