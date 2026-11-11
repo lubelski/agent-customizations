@@ -31,6 +31,14 @@ Three independent toggles, all off by default and saved to `ui.json`:
 
 Changes apply immediately and persist in `~/.pi/agent/ui.json` (respecting `PI_CODING_AGENT_DIR`). The compact header/footer reclaim **five rows** together. Message panels always sit one gap column in from each side, with one column of padding inside; font compatibility only replaces the thin sextant caps with whole blank rows. It is not an ASCII-only mode for the entire UI. Settings are shared by clients using the same Pi agent directory.
 
+## Tool summaries and failures
+
+Successful completed tools occupy one summary row. Filenames, simple shell programs, search expressions, URL hosts, and codemode call names draw in the theme's text color; directories, arguments, separators, and counts stay dim. Inserted home aliases (`~`) use the accent color. Simple literal absolute path words inside shell commands shorten to home-relative paths too. Shell styling is conservative: expansions, redirections, compound syntax, incomplete quotes, and wrapper options fall back to dim text, not a guessed parse. This is presentation only, not a command-safety assessment.
+
+Failed completed tools keep an error-colored summary and the last two nonblank text-output lines. If earlier lines were omitted, a separate notice says how many. Empty or image-only failures show a short fallback instead of rendering images in the preview. Interrupted calls receive the same treatment when Pi marks their result as an error; successful output containing words like “error” is not treated as failure.
+
+Click the heading (fullscreen) or use Pi's tool-expansion shortcut (Ctrl+O by default) to open details. Existing `+10 more`, `show all`, and `/tool-detail more|all|collapse` controls remain available; collapsing a failure returns to its bounded preview, while collapsing a success returns to one row. Body clicks and drags remain available for selection. Streaming tools retain their two-line live preview beneath the summary. Stored results, execution arguments, and model context are unchanged.
+
 ## Thinking text
 
 Thinking content is shown inline without a panel or padding rows, in italics and the theme's muted `thinkingText` color, so it reads as less salient than the reply. It folds to three lines with a trailing ellipsis; click it to expand or collapse. It streams in place, rather than appearing as a `Thinking...` disclosure. While this extension is loaded, Pi’s hide-thinking setting does not hide it; no installed settings are rewritten. Explicit Markdown emphasis still renders normally.

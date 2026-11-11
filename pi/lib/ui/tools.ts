@@ -11,7 +11,7 @@ import { createRequire } from "node:module";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
-import { compactPath } from "./tool-paths.ts";
+import { cleanSummary, commandSignal, failureTail, pathSignal, unstyled, type Paint } from "./tool-signal.ts";
 
 // Pi loads personal extensions through symlinks. Resolve parser dependencies
 // from this checkout, not from the user's ~/.pi/agent directory.
@@ -76,7 +76,7 @@ const ORIGINAL_MOUSE = Symbol.for("will.pi.recessed-tools.original-mouse");
 const WRAPPED_MOUSE = Symbol.for("will.pi.recessed-tools.wrapped-mouse");
 
 /** Deliberately omit payloads/scripts: the transcript should foreground prose. */
-export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity, markHome: (text: string) => string = text => text): string {
+export function toolSummary(name: string, args: Record<string, unknown>, failed: boolean, width = Infinity, markHome: (text: string) => string = text => text, paint: Paint = unstyled): string {
 	if (name === "codemode") {
 		let cached = scriptCache.get(args);
 		if (!cached || cached.code !== args.code) {
@@ -84,21 +84,41 @@ export function toolSummary(name: string, args: Record<string, unknown>, failed:
 			scriptCache.set(args, cached);
 		}
 		const { labels } = cached;
-		const format = (count: number) => `${failed ? "✗" : "›"} codemode${count ? ` · ${labels.slice(0, count).join(", ")}` : ""}${labels.length > count ? ` · +${labels.length - count} more` : ""}${failed ? " · failed" : ""}`;
+		const format = (count: number) => paint("dim", `${failed ? "✗" : "›"} codemode`) + (count ? paint("dim", " · ") + labels.slice(0, count).map(label => {
+			const [call, multiplicity] = label.split(" ×");
+			return paint("text", call) + (multiplicity ? paint("dim", ` ×${multiplicity}`) : "");
+		}).join(paint("dim", ", ")) : "") + paint("dim", `${labels.length > count ? ` · +${labels.length - count} more` : ""}${failed ? " · failed" : ""}`);
 		let count = Math.min(3, labels.length);
 		while (count > 1 && visibleWidth(format(count)) > width) count--;
 		return format(count);
 	}
-	const target = [args.path, args.file_path, args.command, args.query, args.url]
-		.find((value): value is string => typeof value === "string" && value.length > 0);
-	const clean = (value: string) => stripTerminalSequences(value).replace(/[\x00-\x1f\x7f-\x9f]/g, " ").replace(/\s+/g, " ").trim();
-	const head = `${failed ? "✗" : "›"} ${clean(name)}`;
+	const targetKey = ["pattern", "query", "path", "file_path", "command", "url"]
+		.find(key => typeof args[key] === "string" && (args[key] as string).length > 0);
+	const target = targetKey ? args[targetKey] as string : undefined;
+	const head = `${failed ? "✗" : "›"} ${cleanSummary(name)}`;
 	const suffix = failed ? " · failed" : "";
-	const isPath = target !== undefined && (target === args.path || target === args.file_path);
-	const detail = target ? isPath
-		? compactPath(clean(target), homedir(), Math.max(0, width - visibleWidth(head + suffix) - 3), markHome)
-		: clean(target) : "";
-	return `${head}${target ? ` · ${detail}` : ""}${suffix}`;
+	const room = Math.max(0, width - visibleWidth(head + suffix) - 3);
+	let detail = "";
+	if (target !== undefined) {
+		if (targetKey === "path" || targetKey === "file_path") detail = pathSignal(cleanSummary(target), homedir(), room, markHome, paint);
+		else if (targetKey === "command") detail = commandSignal(target, homedir(), markHome, paint);
+		else if (targetKey === "url") {
+			const match = cleanSummary(target).match(/^(https?:\/\/)([^/]+)(.*)$/);
+			detail = match ? paint("dim", match[1]) + paint("text", match[2]) + paint("dim", match[3]) : paint("dim", cleanSummary(target));
+		} else {
+			detail = paint("text", cleanSummary(target));
+			const scope = typeof args.path === "string" ? args.path : undefined;
+			if (scope) detail += paint("dim", ` in ${cleanSummary(scope)}`);
+		}
+	}
+	return paint("dim", head) + (target !== undefined ? paint("dim", " · ") + detail : "") + paint("dim", suffix);
+}
+
+function summaryHeader(tool: ToolComponent, width: number, theme: Theme): string {
+	const failed = !!tool.result?.isError;
+	const paint: Paint = (tone, text) => theme.fg(failed ? "error" : tone, text);
+	return truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, failed, width,
+		text => theme.fg(failed ? "error" : "accent", text), paint), width);
 }
 
 /** The argument that streams in: what a pending tool is about to run or write. */
@@ -155,7 +175,7 @@ function previewRows(body: string[], width: number, theme: Theme): string[] {
 
 function renderPending(tool: ToolComponent, width: number): string[] {
 	const theme = currentTheme!();
-	const header = theme.fg("dim", truncateToWidth(toolSummary(tool.toolName ?? "tool", tool.args ?? {}, false, width, text => theme.fg("accent", text)), width));
+	const header = summaryHeader(tool, width, theme);
 	const body = toolBody(tool, theme);
 	const row = (bracket: string, line = "") => branchRow(bracket, line, width, theme);
 	if (!streamingOpen.has(tool)) return [header, ...previewRows(body, width, theme)];
@@ -176,7 +196,7 @@ type ToolComponent = {
 	toolName?: string;
 	args?: Record<string, unknown>;
 	isPartial?: boolean;
-	result?: { isError?: boolean };
+	result?: { isError?: boolean; content?: { type: string; text?: string }[] };
 	imageComponents?: unknown[];
 	contentBox?: { render(width: number): string[] };
 	contentText?: { render(width: number): string[] };
@@ -235,10 +255,17 @@ function patchToolHeight(): void {
 		if (!completed(this)) return currentTheme && this.isPartial !== false && width > 2
 			? renderPending(this, width) : original.call(this, width);
 		if (width <= 0) return [];
-		const summary = toolSummary(this.toolName!, this.args ?? {}, !!this.result?.isError, width, text => currentTheme!().fg("accent", text));
-		const header = currentTheme!().fg(this.result?.isError ? "error" : "dim", truncateToWidth(summary, width));
-		// Completed calls return to a single concise summary.
-		if (!this.expanded) return [header];
+		const theme = currentTheme!();
+		const header = summaryHeader(this, width, theme);
+		// Quiet successes; failures keep a bounded, literal output tail.
+		if (!this.expanded) {
+			if (!this.result?.isError) return [header];
+			const { lines, omitted } = failureTail(this.result);
+			const preview = lines.length ? lines : ["No text output; expand for details."];
+			return [header,
+				...(omitted ? [branchRow("│", theme.fg("dim", `… ${omitted} earlier lines · expand heading for details`), width, theme)] : []),
+				...preview.map((line, index) => branchRow(index === preview.length - 1 ? "└" : "│", theme.fg("error", line), width, theme))];
+		}
 		const state = disclosure(this);
 		// Never slice terminal image escape sequences. Preview text only; full
 		// disclosure restores native image rendering intact.
