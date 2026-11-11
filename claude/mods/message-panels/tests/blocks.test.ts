@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { countLines, cutBlocks, cutDiff, diffSource, inputBlocks, outputBlocks } from '../hooks/blocks.ts'
+import { countLines, cutBlocks, cutDiff, cutPair, diffSource, inputBlocks, outputBlocks } from '../hooks/blocks.ts'
 
 const colors = { error: 'red', tag: 'tag' }
 
@@ -53,4 +53,24 @@ test('a cut diff rewrites its last hunk so it still parses', async () => {
   expect(cutDiff(source, 8)).toBe('@@ -1,2 +1,2 @@\n a\n-b\n+c\n@@ -9,2 +9,3 @@\n x\n+y\n z')
   expect(cutDiff(source, 2)).toBe('@@ -1,1 +1,1 @@\n a')
   expect(cutDiff(source, 1)).toBe('@@ -1,0 +1,0 @@')
+})
+
+const rows = (n: number, prefix: string) => [{ kind: 'lines' as const, lines: Array.from({ length: n }, (_, i) => ({ text: `${prefix}${i}` })) }]
+
+test('a shared preview gives input at most its cap when output follows', async () => {
+  const [input, output] = cutPair(rows(5, 'i'), rows(20, 'o'), 7, 3)
+  expect(countLines(input)).toBe(3)
+  expect(countLines(output)).toBe(4)
+})
+
+test('short output leaves its room to the input', async () => {
+  const [input, output] = cutPair(rows(5, 'i'), rows(1, 'o'), 7, 3)
+  expect(countLines(input)).toBe(5)
+  expect(countLines(output)).toBe(1)
+})
+
+test('input alone takes the whole preview', async () => {
+  const [input, output] = cutPair(rows(10, 'i'), [], 7, 3)
+  expect(countLines(input)).toBe(7)
+  expect(countLines(output)).toBe(0)
 })

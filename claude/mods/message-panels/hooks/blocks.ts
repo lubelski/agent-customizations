@@ -164,3 +164,13 @@ export const cutBlocks = (blocks: Block[], limit: number): Block[] => {
   }
   return out
 }
+
+/**
+ * Input and output cut to `total` rows between them: the input first, but at
+ * most `inputMax` rows of it when output follows, and the output the rest.
+ */
+export const cutPair = (input: Block[], output: Block[], total: number, inputMax: number): [Block[], Block[]] => {
+  const inputRoom = Math.min(countLines(input), countLines(output) > 0 ? Math.max(inputMax, total - countLines(output)) : total, total)
+  const inputShown = cutBlocks(input, inputRoom)
+  return [inputShown, cutBlocks(output, total - countLines(inputShown))]
+}

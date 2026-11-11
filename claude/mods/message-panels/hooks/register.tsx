@@ -1,6 +1,6 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
-import { countLines, cutBlocks, inputBlocks, outputBlocks } from './blocks'
+import { countLines, cutBlocks, cutPair, inputBlocks, outputBlocks } from './blocks'
 import type { Block } from './blocks'
 import { commandRuns, fitRuns } from './commands'
 import { pathRuns } from './paths'
@@ -21,10 +21,15 @@ const PALETTES: Record<Scheme, Palette> = {
   light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', quote: '#c4906f', error: '#b0442f', tag: '#76685e' },
 }
 
-// An expanded tool row (ctrl+o, --verbose, an errored call) shows this much of
-// its input and output before a click reveals the rest.
+// A tool row in the ctrl+o transcript shows this much of its input and output
+// before a click reveals the rest.
 const INPUT_PREVIEW = 8
 const OUTPUT_PREVIEW = 12
+// An open row anywhere else (the `verbose` setting, a chevron the person
+// opened, a failed call) shows this many lines in all, input first but at
+// most `PREVIEW_INPUT_MAX` of it when output follows.
+const PREVIEW = 7
+const PREVIEW_INPUT_MAX = 3
 
 // A click on a tool row expands it, and the engine paints the row's container
 // in the `userMessageBackgroundHover` theme color, full width. A Box paints
@@ -74,6 +79,25 @@ async function palette($: EngineInterface): Promise<Palette> {
 }
 
 const revealed = atom({ plugin: 'message-panels', key: 'revealed' } as const, {} as Record<string, boolean>, { shape: 'revealed-1' })
+
+// Tool rows whose chevron the person turned, by tool_use_id: true open, false
+// closed. A row with no entry takes its view's default.
+const opened = atom({ plugin: 'message-panels', key: 'opened' } as const, {} as Record<string, boolean>, { shape: 'opened-1' })
+
+// The `verbose` setting. The engine marks rows expanded alike under it and in
+// the ctrl+o transcript, so the mod reads the setting to tell them apart.
+const verbose = atom({ plugin: 'message-panels', key: 'verbose' } as const, false, { shape: 'verbose-1' })
+
+/** Writes the `verbose` setting only when it changed. */
+async function refreshVerbose($: EngineInterface): Promise<void> {
+  const row = (await $.config.list()).find(r => r.key === 'verbose')
+  const next = row?.value === true
+  if ((await read($, verbose)) !== next) await update($, verbose, () => next)
+}
+
+async function toggleOpened($: EngineInterface, id: string, open: boolean): Promise<void> {
+  await update($, opened, held => ({ ...held, [id]: !open }))
+}
 
 // Summary rows show this many lines, the last cut with `…`.
 const ASIDE_LINES = 3
@@ -159,9 +183,9 @@ function summarize(input: unknown): Detail {
  * its file name in the text tone; a command draws each program in the text
  * tone and the rest dim; any other detail is dim.
  */
-function labelRuns(tool: string, input: unknown, width: number, context: PathContext): Run[] {
+function labelRuns(tool: string, input: unknown, width: number, context: PathContext, mark = '›'): Run[] {
   const name = tool.startsWith('mcp__') ? tool.split('__').slice(2).join('__') || tool : tool
-  const head = `› ${name}`
+  const head = `${mark} ${name}`
   const detail = summarize(input)
   if (!detail.text) return [{ text: truncate(head, width), tone: 'dim' }]
   const room = width - head.length - 3
@@ -487,6 +511,73 @@ function holdsEngine(node: unknown): boolean {
 }
 
 
+/** One tool call, as `ToolUse` and the calls of a `ToolGroup` both carry it. */
+type Call = {
+  tool_use_id?: string
+  tool: string
+  input: unknown
+  output?: unknown
+  isRunning: boolean
+  isErrored: boolean
+  isInterrupted: boolean
+}
+
+/**
+ * One tool call: a line headed by a chevron, and under it, when open, the
+ * input and output. The ctrl+o transcript (`transcript`) shows every row open
+ * with the longer preview and a fixed `▾`. Elsewhere the chevron is a button:
+ * a row starts open under the `verbose` setting or when the call failed, else
+ * closed, and the person's turn of it wins. An open row there shows `PREVIEW`
+ * lines in all; `n more lines` reveals the rest in either view.
+ */
+async function drawCall($: EngineInterface, elements: Elements, call: Call, transcript: boolean, width: number) {
+  const { Box, Text, Button } = elements
+  const failed = call.isErrored || call.isInterrupted
+  const colors = await palette($)
+  const context = await pathContext($)
+  const id = call.tool_use_id
+  const held = id === undefined ? undefined : (await read($, opened))[id]
+  const open = transcript || (held ?? ((await read($, verbose)) || failed))
+  const mark = open ? '▾' : '▸'
+  // A Button holds strings and Text only, so it holds the line's runs.
+  const runs = toolLine(elements, labelRuns(call.tool, call.input, width, context, mark), colors, failed, call.isRunning)
+  const head =
+    transcript || id === undefined ? (
+      <Box>{runs}</Box>
+    ) : (
+      <Box>
+        <Button key={`fold-${id}`} label={`${open ? 'Close' : 'Open'} ${call.tool}`} plain onPress={() => toggleOpened($, id, open)}>
+          {runs}
+        </Button>
+      </Box>
+    )
+  if (!open) return <Box paddingLeft={1}>{head}</Box>
+  const full = id !== undefined && (await read($, revealed))[id] === true
+  const input = inputBlocks(call.tool, call.input)
+  const output = call.output === undefined ? [] : outputBlocks(call.output, failed, colors, inputPath(call.input))
+  const [inputShown, outputShown] = full
+    ? [input, output]
+    : transcript
+      ? [cutBlocks(input, INPUT_PREVIEW), cutBlocks(output, OUTPUT_PREVIEW)]
+      : cutPair(input, output, PREVIEW, PREVIEW_INPUT_MAX)
+  const hidden = countLines(input) - countLines(inputShown) + countLines(output) - countLines(outputShown)
+  return (
+    <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2}>
+      {head}
+      <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
+      <Box flexDirection="column" paddingLeft={2}>
+        {blockElements(elements, inputShown, full, colors.tag)}
+        {blockElements(elements, outputShown, full)}
+        {id !== undefined && (hidden > 0 || full) ? (
+          <Button key={`reveal-${id}`} plain onPress={() => toggleRevealed($, id)}>
+            <Text color={colors.tag}>{full ? '▴ less' : `… ${hidden} more lines`}</Text>
+          </Button>
+        ) : null}
+      </Box>
+    </Box>
+  )
+}
+
 export const register: Register = (on, options) => {
   fontCompat = options.fontCompat === true
 
@@ -495,6 +586,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await refreshScheme($)
+    await refreshVerbose($)
     schemePoll?.cancel()
     schemePoll = $.clock.every(SCHEME_POLL_MS, () => refreshScheme($))
     return result
@@ -503,6 +595,12 @@ export const register: Register = (on, options) => {
   on('config.set', { key: 'theme' }, async ($, e, next) => {
     const result = await next(e)
     await refreshScheme($)
+    return result
+  })
+
+  on('config.set', { key: 'verbose' }, async ($, e, next) => {
+    const result = await next(e)
+    await refreshVerbose($)
     return result
   })
 
@@ -588,46 +686,18 @@ export const register: Register = (on, options) => {
     )
   })
 
-  // A tool call is one dim line. Expanded (ctrl+o, --verbose) or failed, the
-  // line heads a block indented under it: the input as `key: value` lines, then
-  // the output. Each shows a preview, and one click on the `n more lines`
-  // button reveals the rest; the row's output comes from `p.output`, so the
-  // engine's own ToolResult row is hidden on this surface.
+  // A tool call is a line headed by a chevron, drawn by `drawCall`. The row's
+  // output comes from `p.output`, so the engine's own ToolResult row is hidden
+  // on this surface. Expanded without the `verbose` setting is the ctrl+o
+  // transcript (or `--verbose` given on the command line, which the setting
+  // does not show), where every row is open.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal') return next(e)
     const { Box, Text, Button, Code } = $.ui.resolve(e)
-    const elements: Elements = { Box, Text, Button, Code }
     const width = (e.viewport?.columns ?? 100) - 4
-    const failed = p.isErrored || p.isInterrupted
-    const colors = await palette($)
-    const context = await pathContext($)
-    const head = <Box>{toolLine(elements, labelRuns(p.tool, p.input, width, context), colors, failed, p.isRunning)}</Box>
-    if (!p.isExpanded && !failed) {
-      return <Box paddingLeft={1}>{head}</Box>
-    }
-    const id = p.tool_use_id
-    const open = (await read($, revealed))[id] === true
-    const input = inputBlocks(p.tool, p.input)
-    const output = outputBlocks(p.output, failed, colors, inputPath(p.input))
-    const inputShown = open ? input : cutBlocks(input, INPUT_PREVIEW)
-    const outputShown = open ? output : cutBlocks(output, OUTPUT_PREVIEW)
-    const hidden = countLines(input) - countLines(inputShown) + countLines(output) - countLines(outputShown)
-    return (
-      <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2}>
-        {head}
-        <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
-        <Box flexDirection="column" paddingLeft={2}>
-          {blockElements(elements, inputShown, open, colors.tag)}
-          {blockElements(elements, outputShown, open)}
-          {hidden > 0 || open ? (
-            <Button key={`reveal-${id}`} plain onPress={() => toggleRevealed($, id)}>
-              <Text color={colors.tag}>{open ? '▴ less' : `▸ ${hidden} more lines`}</Text>
-            </Button>
-          ) : null}
-        </Box>
-      </Box>
-    )
+    const transcript = p.isExpanded === true && !(await read($, verbose))
+    return drawCall($, { Box, Text, Button, Code }, p, transcript, width)
   })
 
   // The ToolUse row above draws the output itself, in every view.
@@ -637,11 +707,11 @@ export const register: Register = (on, options) => {
     return <Box display="none" />
   })
 
-  // A group of calls draws one line per call. `isCallsOnly` is false when a
-  // call errored or was interrupted, and also when the group holds other rows
-  // (recalled memory, hook timing). A failed call explains the first case, so
-  // the group still draws its own lines, the failed one in the error color.
-  // Otherwise the engine's line stays, pulled up over its blank row.
+  // A group of calls draws each call as its own chevron row. `isCallsOnly` is
+  // false when a call errored or was interrupted, and also when the group holds
+  // other rows (recalled memory, hook timing). A failed call explains the first
+  // case, so the group still draws its own rows, the failed one open and in the
+  // error color. Otherwise the engine's line stays, pulled up over its blank row.
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal' || p.isExpanded) return next(e)
@@ -649,16 +719,7 @@ export const register: Register = (on, options) => {
     const failed = p.calls.some(call => call.isErrored || call.isInterrupted)
     if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
-    const context = await pathContext($)
-    const colors = await palette($)
-    return (
-      <Box flexDirection="column" paddingLeft={1}>
-        {p.calls.map(call => (
-          <Box>
-            {toolLine({ Box, Text, Button, Code }, labelRuns(call.tool, call.input, width, context), colors, call.isErrored || call.isInterrupted, call.isRunning)}
-          </Box>
-        ))}
-      </Box>
-    )
+    const rows = await Promise.all(p.calls.map(call => drawCall($, { Box, Text, Button, Code }, call, false, width)))
+    return <Box flexDirection="column">{rows}</Box>
   })
 }
