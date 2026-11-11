@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
-import { fitPath, shortenPath } from './paths'
-import type { PathContext } from './paths'
+import { commandRuns, fitRuns } from './commands'
+import { pathRuns } from './paths'
+import type { PathContext, Run } from './paths'
 import { segments, unwrapPastes } from './paste'
 
 // Warm palettes near Claude's orange (#d97757), muted for panel fills.
@@ -123,38 +124,63 @@ function truncate(value: string, width: number): string {
 
 const KEYS = ['command', 'file_path', 'path', 'pattern', 'url', 'query', 'description', 'prompt', 'skill']
 
-// Fields that hold a file path, drawn short and cut from the middle.
+// Fields that hold a file path, drawn short and cut from the middle, and the
+// one that holds a shell command, drawn with its programs in the text tone.
 const PATH_KEYS = new Set(['file_path', 'path'])
+const COMMAND_KEY = 'command'
 
-type Detail = { text: string; isPath: boolean }
+type Detail = { text: string; kind: 'path' | 'command' | 'other' }
 
 /** The one input field a person would recognise the call by. */
 function summarize(input: unknown): Detail {
-  if (!input || typeof input !== 'object') return { text: '', isPath: false }
+  if (!input || typeof input !== 'object') return { text: '', kind: 'other' }
   const record = input as Record<string, unknown>
   for (const key of KEYS) {
     const value = record[key]
-    if (typeof value === 'string' && value.trim()) return { text: oneLine(value), isPath: PATH_KEYS.has(key) }
-  }
-  for (const value of Object.values(record)) {
-    if (typeof value === 'string' && value.trim()) return { text: oneLine(value), isPath: false }
-    // A list of labelled items (set_links): its labels.
-    if (Array.isArray(value) && value.length > 0 && value.every(v => v && typeof v === 'object' && typeof (v as { label?: unknown }).label === 'string')) {
-      return { text: value.map(v => oneLine((v as { label: string }).label)).join(', '), isPath: false }
+    if (typeof value === 'string' && value.trim()) {
+      return { text: oneLine(value), kind: PATH_KEYS.has(key) ? 'path' : key === COMMAND_KEY ? 'command' : 'other' }
     }
   }
-  return { text: '', isPath: false }
+  for (const value of Object.values(record)) {
+    if (typeof value === 'string' && value.trim()) return { text: oneLine(value), kind: 'other' }
+    // A list of labelled items (set_links): its labels.
+    if (Array.isArray(value) && value.length > 0 && value.every(v => v && typeof v === 'object' && typeof (v as { label?: unknown }).label === 'string')) {
+      return { text: value.map(v => oneLine((v as { label: string }).label)).join(', '), kind: 'other' }
+    }
+  }
+  return { text: '', kind: 'other' }
 }
 
-/** The call's one line, cut to `width`: a path loses directories from its middle. */
-function label(tool: string, input: unknown, width: number, context: PathContext): string {
+/**
+ * The call's one line as runs, cut to `width`. The head `› <tool> · ` is dim.
+ * A path draws its stand-in prefix in the tag tone, its directories dim and
+ * its file name in the text tone; a command draws each program in the text
+ * tone and the rest dim; any other detail is dim.
+ */
+function labelRuns(tool: string, input: unknown, width: number, context: PathContext): Run[] {
   const name = tool.startsWith('mcp__') ? tool.split('__').slice(2).join('__') || tool : tool
   const head = `› ${name}`
   const detail = summarize(input)
-  if (!detail.text) return truncate(head, width)
-  if (!detail.isPath) return truncate(`${head} · ${detail.text}`, width)
+  if (!detail.text) return [{ text: truncate(head, width), tone: 'dim' }]
   const room = width - head.length - 3
-  return room < 2 ? truncate(head, width) : `${head} · ${fitPath(shortenPath(detail.text, context), room)}`
+  if (room < 2) return [{ text: truncate(head, width), tone: 'dim' }]
+  const lead: Run = { text: `${head} · `, tone: 'dim' }
+  if (detail.kind === 'path') return [lead, ...pathRuns(detail.text, context, room)]
+  if (detail.kind === 'command') return [lead, ...commandRuns(detail.text, context, room)]
+  return fitRuns([lead, { text: detail.text, tone: 'dim' }], width)
+}
+
+/** A tool line's runs as Text elements: dim, the theme's text, or the tag color; all in `color` when the call failed. */
+function toolLine({ Text }: Elements, runs: Run[], colors: Palette, failed: boolean, running: boolean) {
+  const shown = running ? [...runs, { text: ' …', tone: 'dim' as const }] : runs
+  return shown.map(run => {
+    const color = failed ? colors.error : run.tone === 'tag' ? colors.tag : undefined
+    return (
+      <Text color={color} dimColor={failed || run.tone !== 'text'} wrap="truncate-end">
+        {run.text}
+      </Text>
+    )
+  })
 }
 
 /** What a path is shortened against: the session's directory and the home directory. */
@@ -636,12 +662,7 @@ export const register: Register = (on, options) => {
     const failed = p.isErrored || p.isInterrupted
     const colors = await palette($)
     const context = await pathContext($)
-    const head = (
-      <Text dimColor color={failed ? colors.error : undefined} wrap="truncate-end">
-        {label(p.tool, p.input, width, context)}
-        {p.isRunning ? ' …' : ''}
-      </Text>
-    )
+    const head = <Box>{toolLine({ Box, Text, Button }, labelRuns(p.tool, p.input, width, context), colors, failed, p.isRunning)}</Box>
     if (!p.isExpanded && !failed) {
       return <Box paddingLeft={1}>{head}</Box>
     }
@@ -688,7 +709,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal' || p.isExpanded) return next(e)
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const failed = p.calls.some(call => call.isErrored || call.isInterrupted)
     if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
@@ -697,10 +718,9 @@ export const register: Register = (on, options) => {
     return (
       <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
-          <Text dimColor color={call.isErrored || call.isInterrupted ? colors.error : undefined} wrap="truncate-end">
-            {label(call.tool, call.input, width, context)}
-            {call.isRunning ? ' …' : ''}
-          </Text>
+          <Box>
+            {toolLine({ Box, Text, Button }, labelRuns(call.tool, call.input, width, context), colors, call.isErrored || call.isInterrupted, call.isRunning)}
+          </Box>
         ))}
       </Box>
     )
