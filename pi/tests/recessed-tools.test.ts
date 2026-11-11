@@ -43,7 +43,8 @@ test("completed tools are one row, with native details and accurate mouse expans
 			assert.match(stripTerminalSequences(tool.render(80)[0]), /^✗ read.*failed$/);
 			// Image components must not bypass the summary path.
 			tool.imageComponents = [{ render: () => ["image row", "image row"] }];
-			assert.equal(tool.render(80).length, 1);
+			assert.equal(tool.render(80).length, 4, "failure preview includes omission notice and two output lines, not images");
+			assert.deepEqual(tool.render(80).map(stripTerminalSequences).slice(-2), ["  │ line two", "  └ line three"]);
 			assert.equal(result.content[0].text, "line one\nline two\nline three");
 		}
 	}
@@ -154,8 +155,9 @@ test("streaming tools stay three rows, highlight the payload, and open on click"
 	}
 	assert.deepEqual(plain().slice(1), ["  │ const b = 2;", "  └ return [a, b];"]);
 	assert.notEqual(tool.render(60)[1], stripTerminalSequences(tool.render(60)[1]), "payload is highlighted");
+	const beforeClick = renders; // Newer Pi versions also request renders from updateArgs().
 	assert.deepEqual(tool.handleMouse({ type: "click", button: "left", x: 0, y: 2, width: 60, height: 3 }), { handled: true });
-	assert.equal(renders, 1);
+	assert.equal(renders, beforeClick + 1);
 	assert.deepEqual(plain(), ["› codemode · read", "  │ const a = await tools.read({ path: 'x' });", "  │ const b = 2;", "  └ return [a, b];"]);
 	tool.handleMouse({ type: "click", button: "left", x: 0, y: 3, width: 60, height: 4 });
 	assert.equal(plain().length, 3);
