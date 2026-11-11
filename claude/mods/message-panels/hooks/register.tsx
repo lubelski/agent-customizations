@@ -1,5 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, UiPressArgument } from 'claude-code'
+import { countLines, cutBlocks, inputBlocks, outputBlocks } from './blocks'
+import type { Block } from './blocks'
 import { commandRuns, fitRuns } from './commands'
 import { pathRuns } from './paths'
 import type { PathContext, Run } from './paths'
@@ -12,11 +14,11 @@ import { segments, unwrapPastes } from './paste'
 // the theme's own text color. `quote` is the bar beside pasted text in a
 // user panel.
 type Scheme = 'light' | 'dark'
-type Palette = { assistant: string; user: string; userText: string; quote: string; error: string; tag: string; added: string }
+type Palette = { assistant: string; user: string; userText: string; quote: string; error: string; tag: string }
 
 const PALETTES: Record<Scheme, Palette> = {
-  dark: { assistant: '#2a2725', user: '#4a3226', userText: '#efe6df', quote: '#a87a62', error: '#e07a6a', tag: '#8a7d74', added: '#9fb87a' },
-  light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', quote: '#c4906f', error: '#b0442f', tag: '#76685e', added: '#4f7428' },
+  dark: { assistant: '#2a2725', user: '#4a3226', userText: '#efe6df', quote: '#a87a62', error: '#e07a6a', tag: '#8a7d74' },
+  light: { assistant: '#e8dcc9', user: '#f4d8c3', userText: '#3b2a20', quote: '#c4906f', error: '#b0442f', tag: '#76685e' },
 }
 
 // An expanded tool row (ctrl+o, --verbose, an errored call) shows this much of
@@ -189,7 +191,7 @@ async function pathContext($: EngineInterface): Promise<PathContext> {
   return { cwd, home }
 }
 
-type Elements = { Box: any; Text: any; Button: any }
+type Elements = { Box: any; Text: any; Button: any; Code?: any }
 
 /**
  * How a panel draws its spacing, from the `fontCompat` option (`/config`).
@@ -452,92 +454,29 @@ function doneAt(requestId: string): string {
   return clock
 }
 
-type Line = { text: string; color?: string }
-
-function splitLines(value: string): string[] {
-  return value.replace(/\r\n?/g, '\n').replace(/\n$/, '').replace(/\t/g, '    ').split('\n')
-}
-
-function plain(value: string, color?: string): Line[] {
-  return splitLines(value).map(text => ({ text, color }))
-}
-
-// Edit and Write carry their text in the output's patch, so their input
-// shows the path and the flags alone.
-const SHOWN_IN_OUTPUT = new Set(['old_string', 'new_string', 'content'])
-
-/** The call's input as `key: value` lines; a multi-line value indents under its key. */
-function inputLines(tool: string, input: unknown): string[] {
-  if (typeof input === 'string') return splitLines(input)
-  if (!input || typeof input !== 'object') return []
-  const lines: string[] = []
-  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-    if (value === undefined || value === null) continue
-    if ((tool === 'Edit' || tool === 'Write') && SHOWN_IN_OUTPUT.has(key)) continue
-    if (typeof value === 'string') {
-      if (value.includes('\n')) lines.push(`${key}:`, ...splitLines(value).map(l => `  ${l}`))
-      else lines.push(`${key}: ${value}`)
-    } else {
-      lines.push(`${key}: ${JSON.stringify(value)}`)
-    }
-  }
-  return lines
-}
-
-type Hunk = { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] }
-
-function patchLines(hunks: Hunk[], colors: Palette): Line[] {
-  const out: Line[] = []
-  for (const hunk of hunks) {
-    out.push({ text: `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`, color: colors.tag })
-    for (const line of hunk.lines) {
-      out.push({ text: line, color: line.startsWith('+') ? colors.added : line.startsWith('-') ? colors.error : undefined })
-    }
-  }
-  return out
-}
-
 /**
- * The call's result as lines: Bash's stdout and stderr, a Read's numbered
- * content, an Edit's or Write's patch, a plugin tool's text blocks, and JSON
- * for anything else. An errored call's result is the error text.
+ * The blocks as elements. Plain lines draw as Text, dim unless colored, in
+ * `color` when the block is input. A code block draws through `Code`, which
+ * highlights it and, under `format: 'diff'`, draws the patch's own gutters
+ * and markers. Lines wrap when `open`, else cut at the edge.
  */
-function outputLines(output: unknown, errored: boolean, colors: Palette): Line[] {
-  if (output === undefined || output === null) return []
-  if (typeof output === 'string') return plain(output, errored ? colors.error : undefined)
-  if (Array.isArray(output)) {
-    return output.flatMap(block => {
-      const b = block as { type?: unknown; text?: unknown }
-      if (b && typeof b.text === 'string') return plain(b.text)
-      if (b && b.type === 'image') return [{ text: '[image]' }]
-      return plain(JSON.stringify(block))
-    })
-  }
-  if (typeof output !== 'object') return [{ text: String(output) }]
-  const r = output as Record<string, unknown>
-  if (typeof r.stdout === 'string' || typeof r.stderr === 'string') {
-    const out: Line[] = []
-    if (r.isImage) out.push({ text: '[image]' })
-    else if (typeof r.stdout === 'string' && r.stdout.trim()) out.push(...plain(r.stdout))
-    if (typeof r.stderr === 'string' && r.stderr.trim()) out.push(...plain(r.stderr, colors.error))
-    if (typeof r.backgroundTaskId === 'string') out.push({ text: `running in background · ${r.backgroundTaskId}`, color: colors.tag })
-    return out
-  }
-  if (Array.isArray(r.structuredPatch) && r.structuredPatch.length > 0) return patchLines(r.structuredPatch as Hunk[], colors)
-  if (r.file && typeof r.file === 'object') {
-    const file = r.file as Record<string, unknown>
-    if (typeof file.content === 'string') {
-      const start = typeof file.startLine === 'number' ? file.startLine : 1
-      const lines = splitLines(file.content)
-      const pad = String(start + lines.length - 1).length
-      return lines.map((text, i) => ({ text: `${String(start + i).padStart(pad)}  ${text}` }))
+function blockElements({ Text, Code }: Elements, blocks: Block[], open: boolean, color?: string) {
+  const wrap = open ? 'wrap' : 'truncate-end'
+  return blocks.map(block => {
+    if (block.kind === 'code') {
+      const { source, language, path, format, startLine } = block.code
+      return <Code source={source || ' '} language={language} path={path} format={format} startLine={startLine} wrap={wrap} />
     }
-    if (typeof file.base64 === 'string') return [{ text: `[${typeof file.type === 'string' ? file.type : 'binary'}]` }]
-  }
-  if (typeof r.content === 'string') return plain(r.content)
-  if (Array.isArray(r.filenames)) return r.filenames.map(f => ({ text: String(f) }))
-  if (typeof r.message === 'string') return plain(r.message)
-  return plain(JSON.stringify(output, null, 2))
+    return block.lines.map(line => (
+      <Text dimColor={!line.color && !color} color={line.color ?? color} wrap={wrap}>{line.text}</Text>
+    ))
+  })
+}
+
+/** The call's file, for the highlighter: a Read's, an Edit's or a Write's. */
+function inputPath(input: unknown): string | undefined {
+  const path = (input as { file_path?: unknown } | null)?.file_path
+  return typeof path === 'string' ? path : undefined
 }
 
 /** Whether the tree holds the engine's own drawing anywhere. */
@@ -657,33 +596,30 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal') return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Code } = $.ui.resolve(e)
+    const elements: Elements = { Box, Text, Button, Code }
     const width = (e.viewport?.columns ?? 100) - 4
     const failed = p.isErrored || p.isInterrupted
     const colors = await palette($)
     const context = await pathContext($)
-    const head = <Box>{toolLine({ Box, Text, Button }, labelRuns(p.tool, p.input, width, context), colors, failed, p.isRunning)}</Box>
+    const head = <Box>{toolLine(elements, labelRuns(p.tool, p.input, width, context), colors, failed, p.isRunning)}</Box>
     if (!p.isExpanded && !failed) {
       return <Box paddingLeft={1}>{head}</Box>
     }
     const id = p.tool_use_id
     const open = (await read($, revealed))[id] === true
-    const input = inputLines(p.tool, p.input)
-    const output = outputLines(p.output, failed, colors)
-    const inputShown = open ? input : input.slice(0, INPUT_PREVIEW)
-    const outputShown = open ? output : output.slice(0, OUTPUT_PREVIEW)
-    const hidden = input.length - inputShown.length + output.length - outputShown.length
+    const input = inputBlocks(p.tool, p.input)
+    const output = outputBlocks(p.output, failed, colors, inputPath(p.input))
+    const inputShown = open ? input : cutBlocks(input, INPUT_PREVIEW)
+    const outputShown = open ? output : cutBlocks(output, OUTPUT_PREVIEW)
+    const hidden = countLines(input) - countLines(inputShown) + countLines(output) - countLines(outputShown)
     return (
       <Box flexDirection="column" width="100%" backgroundColor={PLAIN} paddingLeft={1} paddingRight={2}>
         {head}
         <Box position="absolute" left={0} bottom={-1} height={1} width="100%" backgroundColor={PLAIN} />
         <Box flexDirection="column" paddingLeft={2}>
-          {inputShown.map(text => (
-            <Text color={colors.tag} wrap={open ? 'wrap' : 'truncate-end'}>{text}</Text>
-          ))}
-          {outputShown.map(line => (
-            <Text dimColor={!line.color} color={line.color} wrap={open ? 'wrap' : 'truncate-end'}>{line.text}</Text>
-          ))}
+          {blockElements(elements, inputShown, open, colors.tag)}
+          {blockElements(elements, outputShown, open)}
           {hidden > 0 || open ? (
             <Button key={`reveal-${id}`} plain onPress={() => toggleRevealed($, id)}>
               <Text color={colors.tag}>{open ? '▴ less' : `▸ ${hidden} more lines`}</Text>
@@ -709,7 +645,7 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal' || p.isExpanded) return next(e)
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Code } = $.ui.resolve(e)
     const failed = p.calls.some(call => call.isErrored || call.isInterrupted)
     if (p.isCallsOnly !== true && !failed) return <Box marginTop={-1}>{await next(e)}</Box>
     const width = (e.viewport?.columns ?? 100) - 4
@@ -719,7 +655,7 @@ export const register: Register = (on, options) => {
       <Box flexDirection="column" paddingLeft={1}>
         {p.calls.map(call => (
           <Box>
-            {toolLine({ Box, Text, Button }, labelRuns(call.tool, call.input, width, context), colors, call.isErrored || call.isInterrupted, call.isRunning)}
+            {toolLine({ Box, Text, Button, Code }, labelRuns(call.tool, call.input, width, context), colors, call.isErrored || call.isInterrupted, call.isRunning)}
           </Box>
         ))}
       </Box>
