@@ -1,0 +1,9 @@
+#!/bin/sh
+effort=medium
+case "${1-}" in
+  low|medium|high|xhigh|max)
+    effort=$1
+    shift
+    ;;
+esac
+exec claude --model fable --effort "$effort" "$@"
