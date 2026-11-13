@@ -4,6 +4,22 @@
 
 [`feedback/balsamiq-mcp.md`](feedback/balsamiq-mcp.md) collects dated Balsamiq observations and candidate lessons for later synthesis. It is not part of the installed skill bundle and need not be read for routine tasks. Preserve the distinction between observed behavior, user feedback, and proposed guidance; promote lessons deliberately rather than expanding the skill after every observation.
 
+## Remember this for later
+
+[`remember-this-for-later/`](remember-this-for-later/SKILL.md) captures a note in the middle of a task, so the user does not have to stop and write a rule. A later review turns the notes into rules. [`references/review.md`](remember-this-for-later/references/review.md) is the review procedure.
+
+`scripts/notes.mjs` is the store. It needs Node 22 or later and has no dependencies. Notes live outside every repository, in `~/.local/share/agent-customizations/remember-this-for-later/notes/<origin-repository>/<id>.md`. Set `REMEMBER_THIS_FOR_LATER_HOME` to use a different directory. Each note is one Markdown file with front matter: status, title, scope guess, tags, repository, primary checkout, worktree, branch, commit, harness, and session id.
+
+The store separates two things. The origin of a note is a fact, and the CLI records it. All worktrees of a repository share one origin folder. The scope of a rule (one repository, several, or universal) is a decision, and review makes it. The `scope_guess` field is only the guess of the agent that wrote the note.
+
+Run the tests from the repository root:
+
+```bash
+node --test "skills/remember-this-for-later/tests/*.test.mjs"
+```
+
+The skill is not installed. Installation follows the Balsamiq copy policy below: review the repository version, then copy the bundle to `~/.agents/skills/remember-this-for-later/`. Claude Code also needs the link `~/.claude/skills/remember-this-for-later` to `../../.agents/skills/remember-this-for-later`.
+
 ## Balsamiq MCP
 
 [`balsamiq-mcp/`](balsamiq-mcp/SKILL.md) is the canonical, source-controlled skill for Balsamiq work across projects. It includes authoring guidance and reference schemas/examples; it is not Tau-specific.

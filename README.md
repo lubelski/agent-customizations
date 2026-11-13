@@ -9,7 +9,7 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 
 ## Shared skills
 
-[Shared skills](skills/README.md) contains the canonical Balsamiq MCP skill (installed as a user-level file copy) and documents the pinned `avoid-ai-writing` trial for user-level Pi and Claude Code. The previous `deslop` deployment is preserved under [archive/](archive/README.md) for rollback. This explicitly authorized skill deployment is separate from the runtime migration below.
+[Shared skills](skills/README.md) contains the canonical Balsamiq MCP skill (installed as a user-level file copy), the `remember-this-for-later` skill (not installed yet), and documents the pinned `avoid-ai-writing` trial for user-level Pi and Claude Code. The previous `deslop` deployment is preserved under [archive/](archive/README.md) for rollback. This explicitly authorized skill deployment is separate from the runtime migration below.
 
 ## Migration status
 
