@@ -15,6 +15,10 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 
 [Claude model launchers](claude/bin/README.md) provide `opus` and `fable` commands, each starting Claude Code with medium thinking effort by default and accepting an optional first argument such as `opus high` or `fable low`. They are installed separately from the plugins and do not change global Claude settings.
 
+## Statusline recipe
+
+[Statusline recipe](claude/statusline/v1/README.md) describes a Claude Code statusline as a base, separate segments, and an assemble step, so an agent or person can build a script with only the segments they want. It is documentation, not an installed file.
+
 ## Migration status
 
 This is a private consolidation repository. Existing installations still use the original repositories; creating this repo does not deploy or migrate them. Installation commands in the project documentation are for a future, explicit migration only. Do not run them as part of repository setup.
