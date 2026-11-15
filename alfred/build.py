@@ -11,7 +11,7 @@ BUNDLE = "com.will.agent-customizations.launchers"
 def workflow():
     data = dict(bundleid=BUNDLE, name="Agent Launchers", createdby="Will",
                 description="Launch Pi or Claude in a new iTerm window", category="Productivity",
-                version="1.0.0", disabled=False, objects=[], connections={}, uidata={},
+                version="1.1.0", disabled=False, objects=[], connections={}, uidata={},
                 readme=(ROOT / "README.md").read_text(),
                 variables={"AGENT_DIRECTORY": "~/dev"})
     for index, agent in enumerate(("pi", "claude", "opus", "fable")):
@@ -19,7 +19,7 @@ def workflow():
         data["objects"].extend([
             dict(uid=keyword, type="alfred.workflow.input.keyword", version=1,
                  config=dict(keyword=agent, argumenttype=1, withspace=True,
-                             text="Launch " + ("Pi" if agent == "pi" else agent.title()) + " in iTerm",
+                             text=("Pi" if agent == "pi" else agent.title()) + " in iTerm",
                              subtext="New window · optional CLI arguments · ~/dev")),
             dict(uid=action, type="alfred.workflow.action.script", version=2,
                  config=dict(script='/usr/bin/python3 ./launch.py ' + agent + ' "$1"',
@@ -35,6 +35,8 @@ def build(destination):
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("info.plist", plistlib.dumps(workflow()))
         archive.write(ROOT / "launch.py", "launch.py")
+        for icon in sorted((ROOT / "icons").glob("*.png")):
+            archive.write(icon, icon.name)
         for agent in ("opus", "fable"):
             archive.write(ROOT.parent / "claude" / "bin" / agent, agent)
     return destination

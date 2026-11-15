@@ -1,6 +1,10 @@
 # Alfred agent launchers
 
-Four keywords open **new iTerm windows**, not tabs or existing sessions:
+Four keywords open **new iTerm windows**, not tabs or existing sessions.
+Results are named **Pi in iTerm**, **Claude in iTerm**, **Opus in iTerm**, and
+**Fable in iTerm**. Each has a dark icon with a white lettermark (`Pi`, `C`, `O`,
+`F`): turquoise accents for Pi, Anthropic terracotta/orange for Claude models.
+The short keywords remain unchanged:
 
 ```text
 pi
@@ -52,6 +56,20 @@ Choose one installation method to avoid duplicate keywords. The direct installer
 updates only its own fixed workflow folder; Alfred's `prefs.plist` overrides are
 preserved. Installation is a copy, independent of the checkout/worktree. Re-run to
 update; remove **Agent Launchers** in Alfred Preferences to uninstall.
+
+## Icon assets
+
+The committed 512×512 PNGs in `icons/` are copied to the workflow root. Alfred
+uses `<keyword-object-uid>.png` for each result and `icon.png` as the fallback.
+No image dependencies are needed to install or build. To regenerate on macOS:
+
+```sh
+uv run --no-project alfred/generate_icons.py
+```
+
+The generator uses isolated, pinned Pillow and macOS Arial Bold; use `--font`
+to specify another font path on other systems. Icons are white-on-black with
+`#D97757` Claude accents and `#40D9CE` Pi accents, with transparent outer corners.
 
 ## Validation
 

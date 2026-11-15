@@ -19,6 +19,8 @@ class LaunchersTest(unittest.TestCase):
         self.assertEqual([o['config']['keyword'] for o in keywords], ['pi', 'claude', 'opus', 'fable'])
         self.assertTrue(all(o['config']['argumenttype'] == 1 for o in keywords))
         self.assertEqual(len(data['connections']), 4)
+        self.assertEqual([o['config']['text'] for o in keywords],
+                         ['Pi in iTerm', 'Claude in iTerm', 'Opus in iTerm', 'Fable in iTerm'])
 
     def test_arguments_are_literal_in_real_shell(self):
         with tempfile.TemporaryDirectory(prefix="agents ' ") as folder:
@@ -55,7 +57,11 @@ class LaunchersTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             with zipfile.ZipFile(build(root / 'test.alfredworkflow')) as archive:
-                self.assertEqual(set(archive.namelist()), {'info.plist', 'launch.py', 'opus', 'fable'})
+                icons = {'icon.png', 'pi-keyword.png', 'claude-keyword.png',
+                         'opus-keyword.png', 'fable-keyword.png'}
+                self.assertEqual(set(archive.namelist()), {'info.plist', 'launch.py', 'opus', 'fable'} | icons)
+                for icon in icons:
+                    self.assertTrue(archive.read(icon).startswith(b'\x89PNG\r\n\x1a\n'))
                 plistlib.loads(archive.read('info.plist'))
                 self.assertTrue((archive.getinfo('opus').external_attr >> 16) & 0o111)
             (root / 'workflows').mkdir()
@@ -64,6 +70,8 @@ class LaunchersTest(unittest.TestCase):
             install(root)
             self.assertEqual((target / 'prefs.plist').read_bytes(), b'preserve preferences')
             self.assertTrue((target / 'fable').stat().st_mode & 0o111)
+            for icon in icons:
+                self.assertTrue((target / icon).read_bytes().startswith(b'\x89PNG\r\n\x1a\n'))
 
 
 if __name__ == '__main__':

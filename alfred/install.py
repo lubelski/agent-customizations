@@ -20,6 +20,8 @@ def install(preferences):
         shutil.copy2(ROOT.parent / "claude" / "bin" / name, target / name)
         (target / name).chmod(0o755)
     shutil.copy2(ROOT / "launch.py", target / "launch.py")
+    for icon in (ROOT / "icons").glob("*.png"):
+        shutil.copy2(icon, target / icon.name)
     (target / "info.plist").write_bytes(plistlib.dumps(workflow()))
     return target
 
