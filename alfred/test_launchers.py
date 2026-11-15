@@ -20,7 +20,7 @@ class LaunchersTest(unittest.TestCase):
         self.assertTrue(all(o['config']['argumenttype'] == 1 for o in keywords))
         self.assertEqual(len(data['connections']), 4)
         self.assertEqual([o['config']['text'] for o in keywords],
-                         ['Pi in iTerm', 'Claude in iTerm', 'Opus in iTerm', 'Fable in iTerm'])
+                         ['Pi', 'Claude in iTerm', 'Opus', 'Fable'])
 
     def test_arguments_are_literal_in_real_shell(self):
         with tempfile.TemporaryDirectory(prefix="agents ' ") as folder:

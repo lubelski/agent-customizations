@@ -11,7 +11,7 @@ BUNDLE = "com.will.agent-customizations.launchers"
 def workflow():
     data = dict(bundleid=BUNDLE, name="Agent Launchers", createdby="Will",
                 description="Launch Pi or Claude in a new iTerm window", category="Productivity",
-                version="1.1.0", disabled=False, objects=[], connections={}, uidata={},
+                version="1.1.1", disabled=False, objects=[], connections={}, uidata={},
                 readme=(ROOT / "README.md").read_text(),
                 variables={"AGENT_DIRECTORY": "~/dev"})
     for index, agent in enumerate(("pi", "claude", "opus", "fable")):
@@ -19,7 +19,7 @@ def workflow():
         data["objects"].extend([
             dict(uid=keyword, type="alfred.workflow.input.keyword", version=1,
                  config=dict(keyword=agent, argumenttype=1, withspace=True,
-                             text=("Pi" if agent == "pi" else agent.title()) + " in iTerm",
+                             text="Claude in iTerm" if agent == "claude" else agent.title(),
                              subtext="New window · optional CLI arguments · ~/dev")),
             dict(uid=action, type="alfred.workflow.action.script", version=2,
                  config=dict(script='/usr/bin/python3 ./launch.py ' + agent + ' "$1"',
