@@ -1,8 +1,8 @@
 # Alfred agent launchers
 
 Four keywords open **new iTerm windows**, not tabs or existing sessions.
-Results are named **Pi in iTerm**, **Claude in iTerm**, **Opus in iTerm**, and
-**Fable in iTerm**. Each has a dark icon with a white lettermark (`Pi`, `C`, `O`,
+Results are named **Pi**, **Claude in iTerm**, **Opus**, and **Fable**.
+Only Claude retains the suffix to distinguish it from the Claude desktop app. Each has a dark icon with a white lettermark (`Pi`, `C`, `O`,
 `F`): turquoise accents for Pi, Anthropic terracotta/orange for Claude models.
 The short keywords remain unchanged:
 
