@@ -5,15 +5,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import { stripTerminalSequences, truncateToWidth, visibleWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { createRequire } from "node:module";
-import { realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { parse } from "acorn";
+import { simple } from "acorn-walk";
 
-// Pi loads personal extensions through symlinks. Resolve parser dependencies
-// from this checkout, not from the user's ~/.pi/agent directory.
-const requireDependency = createRequire(realpathSync(fileURLToPath(import.meta.url)));
-const { parse } = requireDependency("acorn") as typeof import("acorn");
-const { simple } = requireDependency("acorn-walk") as typeof import("acorn-walk");
+// Compatibility exception: let Pi resolve dependencies in standalone binaries.
 
 const discoveryCalls = new Set(["searchTools", "describeTool", "describeNamespace"]);
 const scriptCache = new WeakMap<object, { code: unknown; labels: string[] }>();

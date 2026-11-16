@@ -20,7 +20,7 @@ Keep the checkout and dependencies available. Package installation resolves the 
 2. Select the package above (or explicitly select only `extensions/ui.ts` and `extensions/session-rename.ts`). When using explicit file paths, keep them in the checkout; avoid symlinks that break relative module imports.
 3. **Exit and restart Pi.** `/reload` is not sufficient when switching between legacy and unified implementations because prototype patches survive runtime reloads.
 
-The old paths remain guarded deprecation shims. Their implementations are frozen, byte-for-byte, in `../legacy/`; those files are not installable entry points. If legacy and unified entry points are selected together, the first family loaded owns the process and the other is skipped with a warning, before registering tools, commands, or patches. Duplicate entry points are skipped too. Restart with only the intended family selected. Rollback uses the six legacy shims, without `ui.ts`, and a fresh process.
+The old paths remain guarded deprecation shims. Their presentation implementations are frozen in `../legacy/` (with a documented parser-import compatibility exception); those files are not installable entry points. If legacy and unified entry points are selected together, the first family loaded owns the process and the other is skipped with a warning, before registering tools, commands, or patches. Duplicate entry points are skipped too. Restart with only the intended family selected. Rollback uses the six legacy shims, without `ui.ts`, and a fresh process.
 
 The migration commands above are manual steps. Repository tests use isolated configuration and do not change installed settings, symlinks, or package registrations.
 
