@@ -106,6 +106,59 @@ test("completed tools are one row, with native details and accurate mouse expans
 	assert.equal(toolSummary("mcp__server__tool", {}, false), "› mcp__server__tool");
 });
 
+test("tool rendering survives invalidated contexts between session runtimes", async () => {
+	const { default: extension } = await jiti.import("../lib/ui/tools.ts");
+	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
+	const { stripTerminalSequences } = tuiModule;
+	themeModule.initTheme("dark");
+	for (const reason of ["new", "resume", "fork", "reload", "quit"]) {
+		const handlers = new Map();
+		const commands = new Map();
+		let active = true;
+		const ctx = {
+			mode: "tui",
+			get ui() {
+				assert.ok(active, "This extension ctx is stale after session replacement or reload");
+				return { get theme() { return themeModule.theme; } };
+			},
+		};
+		extension({ on: (name, handler) => handlers.set(name, handler), registerCommand: (name, command) => commands.set(name, command) }, () => true);
+		handlers.get("session_start")({ reason: "startup" }, ctx);
+		const pending = new ToolExecutionComponent("read", "pending", { path: "a.ts" }, {}, undefined, { requestRender() {} });
+		const completed = new ToolExecutionComponent("read", "done", { path: "b.ts" }, {}, undefined, { requestRender() {} });
+		completed.updateResult({ content: [{ type: "text", text: "one\ntwo" }], isError: false }, false);
+		const dark = completed.render(80);
+		themeModule.initTheme("light");
+		assert.notDeepEqual(completed.render(80), dark, "active renderers follow live theme changes");
+		assert.equal(pending.render(80).length, 3);
+		completed.setExpanded(true);
+		assert.ok(completed.render(80).length > 1);
+
+		// Pi emits shutdown before invalidating ctx; queued renders can still run
+		// before the replacement extension factory/session_start.
+		handlers.get("session_shutdown")?.({ reason }, ctx);
+		active = false;
+		for (const tool of [pending, completed]) {
+			assert.doesNotThrow(() => tool.render(80), `${reason}: render during teardown`);
+			tool.setExpanded(false);
+			assert.doesNotThrow(() => tool.render(80));
+		}
+		const notices: string[] = [];
+		await commands.get("tool-detail").handler("more", { ui: { notify: (message: string) => notices.push(message) } });
+		assert.match(notices[0], /Open a tool first/, "shutdown forgets the old selected tool");
+		handlers.get("session_shutdown")?.({ reason }, ctx); // Idempotent, no old ctx access.
+
+		const next = new Map();
+		extension({ on: (name, handler) => next.set(name, handler), registerCommand() {} });
+		assert.doesNotThrow(() => pending.render(80), "factory-to-start gap is safe too");
+		next.get("session_start")({ reason }, { mode: "tui", ui: { get theme() { return themeModule.theme; } } });
+		assert.deepEqual(completed.render(80).map(stripTerminalSequences), ["› read · b.ts"]);
+		assert.equal(pending.render(80).length, 3, "replacement reactivates custom rendering");
+		next.get("session_shutdown")?.({ reason: "quit" });
+		themeModule.initTheme("dark");
+	}
+});
+
 test("tool rows are indented two columns to align with message text", async () => {
 	const { default: extension } = await jiti.import("../lib/ui/tools.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");

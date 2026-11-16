@@ -254,6 +254,7 @@ function patchToolHeight(): void {
 	setPatch(target, ORIGINAL_EXPAND, WRAPPED_EXPAND, originalExpand, expand);
 	target.setExpanded = expand;
 	const wrapper = function (this: ToolComponent, width: number): string[] {
+		if (!currentTheme) return original.call(this, width);
 		// Two columns: the panels' gap column plus their padding, so tool text lines up with message text.
 		if (!indented() || width < 3) return renderTool.call(this, width, 0);
 		return renderTool.call(this, width - 2, 2).map(line => `  ${line}`);
@@ -376,8 +377,15 @@ export default function (pi: ExtensionAPI, indent: () => boolean = () => false):
 
 	pi.on("session_start", (_event, ctx) => {
 		selected = undefined;
-		if (ctx.mode === "tui") {
-			currentTheme = () => ctx.ui.theme;
-		}
+		currentTheme = ctx.mode === "tui" ? () => ctx.ui.theme : undefined;
+	});
+
+	pi.on("session_shutdown", () => {
+		// Prototype patches outlive the session. Queued transcript renders may run
+		// after ctx is invalidated but before the replacement session starts.
+		// Fall back to native rendering in that gap; keep live theme lookup only
+		// while the owning context is valid.
+		currentTheme = undefined;
+		selected = undefined;
 	});
 }
