@@ -1,4 +1,5 @@
-import { Type, type Usage } from "@earendil-works/pi-ai";
+import type { Usage } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
 import {
 	CustomEditor,
 	defineTool,
