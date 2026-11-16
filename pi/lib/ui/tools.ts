@@ -7,17 +7,12 @@ import {
 } from "@earendil-works/pi-coding-agent";
 
 import { stripTerminalSequences, truncateToWidth, visibleWidth, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
-import { createRequire } from "node:module";
-import { realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { parse } from "acorn";
+import { simple } from "acorn-walk";
 import { homedir } from "node:os";
 import { cleanSummary, commandSignal, failureSummary, pathSignal, unstyled, type Paint } from "./tool-signal.ts";
 
-// Pi loads personal extensions through symlinks. Resolve parser dependencies
-// from this checkout, not from the user's ~/.pi/agent directory.
-const requireDependency = createRequire(realpathSync(fileURLToPath(import.meta.url)));
-const { parse } = requireDependency("acorn") as typeof import("acorn");
-const { simple } = requireDependency("acorn-walk") as typeof import("acorn-walk");
+// Let Pi's extension loader resolve package dependencies, including in standalone binaries.
 
 /** Message text sits two columns in (gap plus padding); tools follow the same left edge. */
 let indented: () => boolean = () => false;

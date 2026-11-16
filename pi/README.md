@@ -74,6 +74,14 @@ Checks run in three layers:
 
 GitHub Actions runs the same checks on Linux and macOS. Pi dependencies are pinned in `package-lock.json`; upgrade them deliberately and rerun the full suite. To probe another installed Pi runtime, set `PI_PACKAGE_ROOT=/absolute/path/to/@earendil-works/pi-coding-agent` for `npm test` and `npm run test:tui` (typechecking still uses local dependencies).
 
+To smoke-test a standalone Pi 1.5.2+ binary (including symlinked package loading):
+
+```sh
+PI_BINARY=/absolute/path/to/pi/pi npm run test:tui
+```
+
+This uses the binary directly; do not set `PI_PACKAGE_ROOT` to a standalone installation, which has no Node module tree. Parser dependencies use standard imports so Pi's loader handles resolution. Pi 1.5.2 includes the upstream symlink-entry fix ([#8112](https://github.com/earendil-works/pi/pull/8112)); the old custom `createRequire` workaround bypassed that loader and failed to resolve bare parser packages in the standalone binary.
+
 These checks catch API and rendering crashes, not every visual defect or live-provider interaction. Manually inspect streaming/tool-heavy conversations after renderer changes.
 
 ## Other extensions in use

@@ -22,19 +22,25 @@ import time
 REPO = Path(__file__).resolve().parents[1]
 PI = Path(os.environ.get("PI_PACKAGE_ROOT", REPO / "node_modules/@earendil-works/pi-coding-agent")).resolve()
 CLI = PI / "dist/bundle/cli.js"
+# PI_BINARY exercises the standalone distribution, not its absent Node module tree.
+COMMAND = [str(Path(os.environ["PI_BINARY"]).resolve())] if os.environ.get("PI_BINARY") else [shutil.which("node"), str(CLI)]
 ANSI = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
 
 
-def smoke(mode, theme, presentation="ui"):
+def smoke(mode, theme, presentation="ui", symlinked=False):
     with tempfile.TemporaryDirectory(prefix="pi-ui-ci-") as temporary:
         home = Path(temporary)
         agent = home / "agent"
         project = home / "project"
         project.mkdir()
         agent.mkdir()
+        package = REPO
+        if symlinked:
+            package = home / "linked-package"
+            package.symlink_to(REPO, target_is_directory=True)
         # Exercise the real package manifest, not a wildcard that loads deprecated entry points.
-        resources = {"packages": [str(REPO)]} if presentation == "ui" else {
-            "extensions": [str(REPO / "extensions" / f"{name}.ts") for name in (
+        resources = {"packages": [str(package)]} if presentation == "ui" else {
+            "extensions": [str(package / "extensions" / f"{name}.ts") for name in (
                 "assistant-background", "code-brackets", "half-bleed", "recessed-tools",
                 "session-title-banner", "stable-input-layout", "session-rename")],
             "themes": [str(REPO / "themes" / "turquoise.json")],
@@ -50,7 +56,7 @@ def smoke(mode, theme, presentation="ui"):
         master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 32, 120, 0, 0))
         process = subprocess.Popen(
-            [shutil.which("node"), str(CLI), "--offline", "--no-mcp", "--no-session",
+            COMMAND + ["--offline", "--no-mcp", "--no-session",
              "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-approve"],
             stdin=slave, stdout=slave, stderr=slave, cwd=project, env=env, start_new_session=True,
         )
@@ -85,7 +91,7 @@ def smoke(mode, theme, presentation="ui"):
                 expect("half-bleed")
                 expect("recessed-tools")
             else:
-                expect("EXT: pi")  # One package provider, not six renderer modules.
+                expect(f"EXT: {package.name}")  # One package provider, not six renderer modules.
                 assert "assistant-bg" not in ANSI.sub(b"", bytes(output)).decode(errors="replace")
             start = len(output)
             os.write(master, b"/inventory\r")
@@ -145,7 +151,7 @@ def smoke(mode, theme, presentation="ui"):
         except BaseException:
             artifacts = REPO / "test-artifacts"
             artifacts.mkdir(exist_ok=True)
-            path = artifacts / f"{presentation}-{mode}-{theme}.log"
+            path = artifacts / f"{presentation}-{mode}-{theme}{'-symlink' if symlinked else ''}.log"
             path.write_bytes(output)
             print(f"FAIL {mode}/{theme}; terminal output: {path}", flush=True)
             print(ANSI.sub(b"", bytes(output[-5000:])).decode(errors="replace"), flush=True)
@@ -155,7 +161,7 @@ def smoke(mode, theme, presentation="ui"):
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
             os.close(master)
-        print(f"PASS bundled CLI: {presentation}/{mode}/{theme} (startup, reload x2, autocomplete, resize, exit)", flush=True)
+        print(f"PASS {'standalone' if os.environ.get('PI_BINARY') else 'bundled'} CLI: {presentation}/{mode}/{theme}{'/symlink' if symlinked else ''} (startup, reload x2, autocomplete, resize, exit)", flush=True)
 
 
 if __name__ == "__main__":
@@ -164,3 +170,8 @@ if __name__ == "__main__":
             smoke(mode, theme)
     smoke("fullscreen", "dark", "legacy")
     smoke("regular", "dark", "legacy")
+    # Pi 1.5.2 includes upstream entry-point realpath handling (PR #8112).
+    # Older pinned npm runtimes need not support this standalone regression case.
+    if os.environ.get("PI_BINARY"):
+        smoke("fullscreen", "dark", symlinked=True)
+        smoke("fullscreen", "dark", "legacy", symlinked=True)
