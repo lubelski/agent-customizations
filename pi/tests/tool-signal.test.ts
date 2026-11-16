@@ -54,24 +54,26 @@ test("real tool rows retain semantic colors and bounded exceptions across themes
 		const original = JSON.stringify(result);
 		for (const width of [0, 1, 2, 3, 4, 8, 20, 80]) {
 			const lines = tool.render(width);
-			assert.equal(lines.length, width ? 1 : 0);
+			assert.equal(lines.length, width ? 2 : 0);
 			assert.ok(lines.every(line => visibleWidth(line) <= width), `width ${width}`);
 		}
-		assert.match(stripTerminalSequences(tool.render(80)[0]), /last diagnostic/);
+		assert.equal(stripTerminalSequences(tool.render(80)[1]), "  └ last diagnostic");
+		assert.doesNotMatch(stripTerminalSequences(tool.render(80)[0]), /last diagnostic/);
+		assert.equal(tool.handleMouse({ type: "click", button: "left", x: 4, y: 1 }), undefined, "diagnostic remains selectable");
 		assert.ok(tool.render(80)[0].includes(themeModule.theme.fg("text", "café.ts")));
 		assert.equal(tool.handleMouse({ type: "click", button: "left", x: 0, y: 2 }), undefined, "body remains selectable");
 		tool.handleMouse({ type: "click", button: "left", x: 0, y: 0 });
 		assert.match(tool.render(80).map(stripTerminalSequences).join("\n"), /first/);
 		tool.setExpanded(false);
-		assert.equal(tool.render(80).length, 1);
+		assert.equal(tool.render(80).length, 2);
 		assert.ok(tool.render(80)[0].includes(themeModule.theme.fg("error", "✗")));
 		assert.ok(tool.render(80)[0].includes(themeModule.theme.fg("dim", " read")), "failure marker preserves normal tool-name styling");
-		assert.ok(tool.render(80)[0].includes(themeModule.theme.fg("error", "last diagnostic")));
+		assert.ok(tool.render(80)[1].includes(themeModule.theme.fg("error", "last diagnostic")));
 		assert.equal(JSON.stringify(result), original);
 		tool.updateResult({ content: [], isError: true }, false);
 		assert.match(tool.render(80).map(stripTerminalSequences).join("\n"), /no text output/);
 		tool.updateResult({ content: [{ type: "text", text: "Operation aborted" }], isError: true }, false);
-		assert.equal(tool.render(80).length, 1);
+		assert.equal(tool.render(80).length, 2);
 		assert.match(tool.render(80).map(stripTerminalSequences).join("\n"), /Operation aborted/);
 		tool.updateResult({ content: [{ type: "text", text: "error in quoted sample; successful result" }], isError: false }, false);
 		assert.equal(tool.render(80).length, 1, "status comes from isError, never text heuristics");
