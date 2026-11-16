@@ -68,7 +68,7 @@ npm run check
 
 Checks run in three layers:
 
-- `npm run typecheck` checks every extension against the pinned Pi API, including editor vs. full UI theme types (Pi 1.2.0).
+- `npm run typecheck` checks every extension against the pinned Pi API, including editor vs. full UI theme types (Pi 1.5.2).
 - `npm test` runs helper tests and real Pi component rendering: custom editor rendering, themes, widths, autocomplete, cursor preservation, footer, and header lifecycle. Runtime tests are mandatory, not silently skipped.
 - `npm run test:tui` launches the **bundled CLI** in isolated pseudo-terminals using the package manifest. It checks startup, two reloads, preset/header preference persistence, autocomplete, mobile-size resize, clean exit, and crash logs in fullscreen/regular modes with turquoise/dark/light themes. It also smoke-tests the deprecated entry points in fullscreen/regular dark mode. It uses a temporary HOME/config/cwd, disables MCP and automatic networking, and makes no model calls. Failure output is saved in `test-artifacts/`.
 
