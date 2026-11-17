@@ -26,7 +26,7 @@ const PALETTES: Record<Scheme, Palette> = {
 const INPUT_PREVIEW = 8
 const OUTPUT_PREVIEW = 12
 // An open row anywhere else (the `verbose` setting, a chevron the person
-// opened, a failed call) shows this many lines in all, input first but at
+// opened) shows this many lines in all, input first but at
 // most `PREVIEW_INPUT_MAX` of it when output follows.
 const PREVIEW = 7
 const PREVIEW_INPUT_MAX = 3
@@ -183,9 +183,8 @@ function summarize(input: unknown): Detail {
  * its file name in the text tone; a command draws each program in the text
  * tone and the rest dim; any other detail is dim.
  */
-function labelRuns(tool: string, input: unknown, width: number, context: PathContext, mark = '›'): Run[] {
-  const name = tool.startsWith('mcp__') ? tool.split('__').slice(2).join('__') || tool : tool
-  const head = `${mark} ${name}`
+function labelRuns(tool: string, input: unknown, width: number, context: PathContext): Run[] {
+  const head = tool.startsWith('mcp__') ? tool.split('__').slice(2).join('__') || tool : tool
   const detail = summarize(input)
   if (!detail.text) return [{ text: truncate(head, width), tone: 'dim' }]
   const room = width - head.length - 3
@@ -526,8 +525,9 @@ type Call = {
  * One tool call: a line headed by a chevron, and under it, when open, the
  * input and output. The ctrl+o transcript (`transcript`) shows every row open
  * with the longer preview and a fixed `▾`. Elsewhere the chevron is a button:
- * a row starts open under the `verbose` setting or when the call failed, else
- * closed, and the person's turn of it wins. An open row there shows `PREVIEW`
+ * a row starts open under the `verbose` setting, else closed, and the person's
+ * turn of it wins. A failed call marks its line with a bright `✗` after the
+ * chevron, so it stands out while closed. An open row there shows `PREVIEW`
  * lines in all; `n more lines` reveals the rest in either view.
  */
 async function drawCall($: EngineInterface, elements: Elements, call: Call, transcript: boolean, width: number) {
@@ -537,10 +537,13 @@ async function drawCall($: EngineInterface, elements: Elements, call: Call, tran
   const context = await pathContext($)
   const id = call.tool_use_id
   const held = id === undefined ? undefined : (await read($, opened))[id]
-  const open = transcript || (held ?? ((await read($, verbose)) || failed))
-  const mark = open ? '▾' : '▸'
+  const open = transcript || (held ?? (await read($, verbose)))
+  const mark = `${open ? '▾' : '▸'} `
+  const badge = failed ? '✗ ' : ''
+  const label = labelRuns(call.tool, call.input, width - mark.length - badge.length, context)
   // A Button holds strings and Text only, so it holds the line's runs.
-  const runs = toolLine(elements, labelRuns(call.tool, call.input, width, context, mark), colors, failed, call.isRunning)
+  const runs = toolLine(elements, [{ text: mark, tone: 'dim' }, ...label], colors, failed, call.isRunning)
+  if (failed) runs.splice(1, 0, <Text color={colors.error} bold>{badge}</Text>)
   const head =
     transcript || id === undefined ? (
       <Box>{runs}</Box>
@@ -710,8 +713,8 @@ export const register: Register = (on, options) => {
   // A group of calls draws each call as its own chevron row. `isCallsOnly` is
   // false when a call errored or was interrupted, and also when the group holds
   // other rows (recalled memory, hook timing). A failed call explains the first
-  // case, so the group still draws its own rows, the failed one open and in the
-  // error color. Otherwise the engine's line stays, pulled up over its blank row.
+  // case, so the group still draws its own rows, the failed one marked `✗`
+  // and in the error color. Otherwise the engine's line stays, pulled up over its blank row.
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const p = e.props
     if (e.surface !== 'terminal' || p.isExpanded) return next(e)
