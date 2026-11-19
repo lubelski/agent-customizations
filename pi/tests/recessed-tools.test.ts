@@ -20,7 +20,7 @@ test("completed tools are one row, with native details and accurate mouse expans
 		handlers.get("session_start")({}, ctx);
 		for (const definition of [undefined, { renderShell: "self", renderCall: () => new Text("native call", 0, 0), renderResult: () => new Text("native output", 0, 0) }]) {
 			const tool = new ToolExecutionComponent("read", "id", { path: "/日本語/long-file.ts" }, {}, definition, ui);
-			assert.deepEqual(tool.render(80).map(stripTerminalSequences), ["› read · /日本語/long-file.ts", "  │ ", "  └   \"path\": \"/日本語/long-file.ts\""], "pending tool is three rows");
+			assert.deepEqual(tool.render(80).map(stripTerminalSequences), ["› read · /日本語/long-file.ts", "  └   \"path\": \"/日本語/long-file.ts\""], "single-line payload has one branch");
 			const result = { content: [{ type: "text", text: "line one\nline two\nline three" }], details: undefined, isError: false };
 			tool.updateResult(result, true);
 			assert.deepEqual(tool.render(80).map(stripTerminalSequences).at(-1), "  └ line three", "running tool tails its output");
@@ -130,7 +130,7 @@ test("tool rendering survives invalidated contexts between session runtimes", as
 		const dark = completed.render(80);
 		themeModule.initTheme("light");
 		assert.notDeepEqual(completed.render(80), dark, "active renderers follow live theme changes");
-		assert.equal(pending.render(80).length, 3);
+		assert.equal(pending.render(80).length, 2);
 		completed.setExpanded(true);
 		assert.ok(completed.render(80).length > 1);
 
@@ -153,7 +153,7 @@ test("tool rendering survives invalidated contexts between session runtimes", as
 		assert.doesNotThrow(() => pending.render(80), "factory-to-start gap is safe too");
 		next.get("session_start")({ reason }, { mode: "tui", ui: { get theme() { return themeModule.theme; } } });
 		assert.deepEqual(completed.render(80).map(stripTerminalSequences), ["› read · b.ts"]);
-		assert.equal(pending.render(80).length, 3, "replacement reactivates custom rendering");
+		assert.equal(pending.render(80).length, 2, "replacement reactivates custom rendering");
 		next.get("session_shutdown")?.({ reason: "quit" });
 		themeModule.initTheme("dark");
 	}
@@ -187,7 +187,7 @@ test("tool rows are indented two columns to align with message text", async () =
 	extension(pi);
 });
 
-test("streaming tools stay three rows, highlight the payload, and open on click", async () => {
+test("streaming tools grow to two preview rows, highlight the payload, and open on click", async () => {
 	const { default: extension, streamingPayload } = await jiti.import("../lib/ui/tools.ts");
 	const { ToolExecutionComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 	const { stripTerminalSequences, visibleWidth } = tuiModule;
@@ -199,11 +199,13 @@ test("streaming tools stay three rows, highlight the payload, and open on click"
 	const args = { code: "" };
 	const tool = new ToolExecutionComponent("codemode", "id", args, {}, undefined, { requestRender() { renders++; } });
 	const plain = () => tool.render(60).map(stripTerminalSequences);
-	assert.deepEqual(plain(), ["› codemode", "  │ ", "  └ "]);
+	assert.deepEqual(plain(), ["› codemode", "  └ "]);
+	let chunks = 0;
 	for (const chunk of ["const a = await tools.read({ path: 'x' });\n", "const b = 2;\n", "return [a, b];"]) {
 		args.code += chunk;
 		tool.updateArgs?.(args);
-		assert.equal(plain().length, 3, "height is fixed while streaming");
+		assert.equal(plain().length, 1 + Math.min(++chunks, 2), "preview grows only when content arrives");
+		assert.ok(plain().at(-1).startsWith("  └ "));
 	}
 	assert.deepEqual(plain().slice(1), ["  │ const b = 2;", "  └ return [a, b];"]);
 	assert.notEqual(tool.render(60)[1], stripTerminalSequences(tool.render(60)[1]), "payload is highlighted");
@@ -214,13 +216,18 @@ test("streaming tools stay three rows, highlight the payload, and open on click"
 	tool.handleMouse({ type: "click", button: "left", x: 0, y: 3, width: 60, height: 4 });
 	assert.equal(plain().length, 3);
 	for (const width of [3, 10, 40]) assert.ok(tool.render(width).every(line => visibleWidth(line) <= width));
+	tool.updateArgs({ code: "run();" });
+	assert.deepEqual(plain().slice(1), ["  └ run();"]);
+	tool.updateResult({ content: [{ type: "text", text: "first output" }], isError: false }, true);
+	assert.deepEqual(plain().slice(1), ["  │ run();", "  └ first output"]);
+	tool.updateArgs(args);
 	tool.updateResult({ content: [{ type: "text", text: "ok" }], isError: false }, false);
 	assert.equal(tool.render(60).length, 1, "completion collapses to its summary");
 	assert.equal(plain()[0], "› codemode · read");
 	tool.handleMouse({ type: "click", button: "left", x: 0, y: 0, width: 60, height: 1 });
 	assert.ok(tool.render(60).length > 1, "the heading opens a completed tool");
 	const json = new ToolExecutionComponent("read", "id", { path: "a" }, {}, undefined, { requestRender() {} });
-	assert.equal(stripTerminalSequences(json.render(60)[2]), '  └   "path": "a"', "tail skips lone brackets");
+	assert.equal(stripTerminalSequences(json.render(60)[1]), '  └   "path": "a"', "tail skips lone brackets");
 	assert.deepEqual(streamingPayload("write", { path: "a.py", content: "x = 1" }), { text: "x = 1", lang: "python" });
 	assert.deepEqual(streamingPayload("bash", { command: "ls" }), { text: "ls", lang: "bash" });
 	assert.equal(streamingPayload("edit", { path: "a.ts", edits: [{ oldText: "a", newText: "b" }] }).text, "b");
