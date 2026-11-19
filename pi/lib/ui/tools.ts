@@ -139,8 +139,8 @@ function highlighted(text: string, lang?: string): string[] {
 }
 
 /**
- * A collapsed tool keeps a fixed three-row height: its summary and two
- * preview lines (output once it runs). Clicking opens the full details.
+ * A collapsed tool shows its summary and up to two preview lines
+ * (output once it runs). Clicking opens the full details.
  */
 /** Payload lines (highlighted) then output lines, for the └ row and the opened view. */
 function toolBody(tool: ToolComponent, theme: Theme): string[] {
@@ -161,12 +161,12 @@ function branchRow(bracket: string, line: string, width: number, theme: Theme): 
 	return theme.fg("dim", prefix) + truncateToWidth(line, width - 4);
 }
 
-/** Two latest meaningful lines; pad short previews to avoid height changes. */
+/** Up to two latest meaningful lines, with one empty branch before content arrives. */
 function previewRows(body: string[], width: number, theme: Theme): string[] {
 	const meaningful = body.filter(line => /[\p{L}\p{N}]/u.test(stripTerminalSequences(line)));
 	const lines = (meaningful.length ? meaningful : body.filter(line => stripTerminalSequences(line).trim())).slice(-2);
-	while (lines.length < 2) lines.unshift("");
-	return lines.map((line, index) => branchRow(index === 0 ? "│" : "└", line, width, theme));
+	if (!lines.length) lines.push("");
+	return lines.map((line, index) => branchRow(index === lines.length - 1 ? "└" : "│", line, width, theme));
 }
 
 function renderPending(tool: ToolComponent, width: number): string[] {

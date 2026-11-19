@@ -128,7 +128,7 @@ While a tool call streams in and runs, it stays exactly three rows, so the trans
   └ return [a, b];
 ```
 
-The first row is the summary. While streaming, two preview rows show the latest meaningful payload or output lines, with short previews padded to keep the height stable. Branches (`│` then `└`) sit two columns farther in, beneath the tool name. Completion collapses to the summary alone; clicking the heading opens details. File paths in summaries replace the home directory with an accent-colored `~` and use middle ellipses to preserve both ends when space is tight. Literal `~` characters are not recolored.
+The first row is the summary. While streaming, up to two preview rows show the latest meaningful payload or output lines. The bracket starts with one row and grows to two only when a second line is available. Branches (`│` then `└`) sit two columns farther in, beneath the tool name. Completion collapses to the summary alone; clicking the heading opens details. File paths in summaries replace the home directory with an accent-colored `~` and use middle ellipses to preserve both ends when space is tight. Literal `~` characters are not recolored.
 
 ## `session-rename.ts`
 
