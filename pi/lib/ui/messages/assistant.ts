@@ -23,7 +23,7 @@ import {
 
 import { attachMessageRendering, codeBlocks, type MessageControlState } from "../../message-controls.ts";
 import { THINKING_MARK } from "./gaps.ts";
-import { copyMouse, decorateCopy, setCopyNotifier } from "./copy.ts";
+import { copyMouse, decorateCopy, panelMouse, setCopyNotifier } from "./copy.ts";
 import type { MessageLayout } from "../settings.ts";
 
 const controls = new WeakSet<object>();
@@ -141,7 +141,7 @@ function attachControls(markdown: Markdown): void {
 		return decorateCopy(lines, markdown);
 	};
 	const source = markdown as unknown as { text: string; handleMouse?: unknown };
-	source.handleMouse = (event: Parameters<typeof copyMouse>[2]) => state.plain ? undefined : copyMouse(markdown, () => source.text, event);
+	source.handleMouse = (event: Parameters<typeof copyMouse>[2]) => state.plain ? undefined : panelMouse(markdown, () => source.text, event);
 	controls.add(markdown);
 }
 

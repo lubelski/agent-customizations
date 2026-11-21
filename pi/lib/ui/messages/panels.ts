@@ -17,7 +17,7 @@ import {
 } from "../../transcript-layout.ts";
 import { attachMessageRendering } from "../../message-controls.ts";
 import { plainDivider, plainTextState } from "./assistant.ts";
-import { copyMouse, decorateCopy } from "./copy.ts";
+import { copyMouse, decorateCopy, panelMouse } from "./copy.ts";
 
 import type { MessageLayout } from "../settings.ts";
 
@@ -100,7 +100,7 @@ function attachPlainText(component: Renderable): void {
 		};
 		const message = component as unknown as { text?: string };
 		(child as unknown as { handleMouse?: unknown }).handleMouse = (event: Parameters<typeof copyMouse>[2]) =>
-			plainTextState.plain ? undefined : copyMouse(child, () => message.text ?? (child as unknown as { text: string }).text, event);
+			plainTextState.plain ? undefined : panelMouse(child, () => message.text ?? (child as unknown as { text: string }).text, event);
 		plainControls.add(child);
 	}
 }

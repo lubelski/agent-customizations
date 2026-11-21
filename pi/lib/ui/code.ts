@@ -1,7 +1,7 @@
 import { copyToClipboard, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Markdown, stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Markdown, stripTerminalSequences, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import { codeCopyMarker, installCodeCopy } from "../code-copy.ts";
+import { codeCopyFits, codeCopyMarker, FENCE, installCodeCopy } from "../code-copy.ts";
 import { createCopyFeedback } from "../copy-feedback.ts";
 
 const ORIGINAL = Symbol.for("will.pi.code-brackets.original-token");
@@ -20,9 +20,8 @@ export default function (pi: ExtensionAPI): void {
 	const original = target.renderToken === target[WRAPPED]
 		? target[ORIGINAL] as MarkdownInternals["renderToken"] : target.renderToken;
 	const wrapper: MarkdownInternals["renderToken"] = function (this: MarkdownInternals, token, width, nextType, style) {
-		const marker = token.type === "code" ? codeCopyMarker(this) : "";
 		const lines = original.call(this, token, width, nextType, style);
-		if (token.type !== "code" || !/^\s*(?:`{3,}|~{3,})/.test(token.raw ?? "") || width < 1) return lines;
+		if (token.type !== "code" || !FENCE.test(token.raw ?? "") || width < 1) return lines;
 		const trailingSpace = nextType && nextType !== "space" ? 1 : 0;
 		const closing = lines.length - 1 - trailingSpace;
 		// Fail harmlessly if Pi changes its native token layout.
@@ -32,13 +31,17 @@ export default function (pi: ExtensionAPI): void {
 		const top = truncateToWidth(label || "┌──", width);
 		const bottomWidth = Math.min(width, 3);
 		const border = (text: string) => this.theme.codeBlockBorder(text);
-		const result = [border(top)];
+		// The copy cells follow the label; the marker carries the rule color for the hover label.
+		const labelWidth = visibleWidth(top);
+		const ruleColor = /\x1b\[38;((?:2;\d+;\d+;\d+)|(?:5;\d+))m/.exec(border("─"))?.[1];
+		const marker = ruleColor && codeCopyFits(labelWidth, width) ? codeCopyMarker(labelWidth, ruleColor) : "";
+		const result = [marker + border(top)];
 		const indent = this.theme.codeBlockIndent ?? "  ";
 		const prefix = width >= 3 ? "│ " : width === 2 ? "│" : "";
 		for (const line of lines.slice(1, closing)) {
 			const code = line.startsWith(indent) ? line.slice(indent.length) : line;
 			for (const wrapped of wrapTextWithAnsi(code, Math.max(1, width - prefix.length))) {
-				result.push((prefix ? marker : "") + border(prefix) + wrapped);
+				result.push(border(prefix) + wrapped);
 			}
 		}
 		result.push(border(`└${"─".repeat(Math.max(0, bottomWidth - 1))}`));

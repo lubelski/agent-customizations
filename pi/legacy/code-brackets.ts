@@ -1,7 +1,7 @@
 import { copyToClipboard, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Markdown, stripTerminalSequences, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-import { codeCopyMarker, installCodeCopy } from "../lib/code-copy.ts";
+import { codeCopyMarker, installCodeCopy } from "./code-copy.ts";
 import { createCopyFeedback } from "../lib/copy-feedback.ts";
 
 const ORIGINAL = Symbol.for("will.pi.code-brackets.original-token");

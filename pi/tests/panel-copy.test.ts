@@ -7,7 +7,7 @@ import { jiti, themeModule, tuiModule } from "./pi-runtime.ts";
 import { UiSettingsStore } from "../lib/ui/settings.ts";
 
 const { default: installMessages } = await jiti.import("../lib/ui/messages/index.ts");
-const { setClipboard, copyColumns } = await jiti.import("../lib/ui/messages/copy.ts");
+const { setClipboard, copyColumns, copyMouse } = await jiti.import("../lib/ui/messages/copy.ts");
 const { UserMessageComponent, AssistantMessageComponent } = await jiti.import("@earendil-works/pi-coding-agent");
 
 test("each panel's top edge copies its raw text, showing COPY under the pointer", async () => {
@@ -32,6 +32,8 @@ test("each panel's top edge copies its raw text, showing COPY under the pointer"
 	const replyTop = before.findIndex(line => line.includes("Reply")) - 1;
 	const mouse = (type, x, y) => container.handleMouse({ type, button: type === "move" ? "none" : "left", x, y, width: W, height: before.length });
 	assert.deepEqual(copyColumns(38), [33, 37]);
+	// Pi's TUI redraws after a move only when the result asks for it.
+	assert.deepEqual(copyMouse({}, () => "", { type: "move", x: 35, y: 0, width: W }), { handled: true, render: true });
 	const x = 35; // inside outer columns 34–37
 
 	for (const mode of [false, true]) {

@@ -237,6 +237,7 @@ async function copyText($: EngineInterface, text: string, surface: UiPressArgume
 // the fill's last column, so one cell of the edge always shows past it. At rest they draw as the edge does; under the pointer the
 // word swaps in. A hover can restyle a label but not change its text, so the
 // word is a second Button, drawn `display: none` until its keyed Box is hovered.
+// code-brackets keeps its own copy of this cell for code labels.
 const COPY_LABEL = 'COPY'
 const COPY_INSET = 1
 

@@ -11,7 +11,7 @@ ts
 - **Label.** The fence's language sits flush left. A fence with no language shows `┌──`.
 - **Rule.** A muted `│` (`#6e6058`) runs beside the code. The code draws through Claude Code's `Code` element, which highlights by language.
 - **Foot.** The block ends in `└──`.
-- **Copy.** Clicking the rule or the label copies the block's code, without the fences or the label. A toast says `Copied`, or `Could not copy code` when the copy fails. The copy uses `$.ui.copy`: the terminal's clipboard tool, or an OSC 52 write. Clicks need a layout where Claude Code receives mouse events.
+- **Copy.** One cell after the label, 4 cells are a copy target, the same one `message-panels` puts on its panels. At rest they are blank. Under the pointer they show `COPY`, bold on the rule color, and a click copies the block's code without the fences or the label. A toast says `Copied`, or `Could not copy code` when the copy fails. The copy uses `$.ui.copy`: the terminal's clipboard tool, or an OSC 52 write. Hover and clicks need a layout where Claude Code receives mouse events. The rule and the label are not click targets.
 
 ## Fence parsing
 
