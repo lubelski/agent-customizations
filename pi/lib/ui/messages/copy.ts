@@ -1,5 +1,6 @@
 import { copyToClipboard } from "@earendil-works/pi-coding-agent";
-import { sliceByColumn, visibleWidth } from "@earendil-works/pi-tui";
+import { Markdown, sliceByColumn, TuiAltScreen, visibleWidth } from "@earendil-works/pi-tui";
+import { clearCodeCopyHover } from "../../code-copy.ts";
 
 /**
  * Per-panel copy target, as in the Claude message-panels mod: four cells of a
@@ -34,7 +35,7 @@ export function copyColumns(width: number): [number, number] | undefined {
 export function clearCopyHover(): boolean {
 	const had = hovered?.deref() !== undefined;
 	hovered = undefined;
-	return had;
+	return clearCodeCopyHover() || had;
 }
 
 const PANEL_COLOR = /\x1b\[(?:38|48);((?:2;\d+;\d+;\d+)|(?:5;\d+))m/;
@@ -55,16 +56,51 @@ export function decorateCopy(lines: string[], owner: object): string[] {
 type PanelMouse = { type: string; button?: string; x: number; y: number; width: number };
 
 /** Hover and click handling for one panel's copy cells; `text` is read at click time. */
-export function copyMouse(owner: object, text: () => string, event: PanelMouse): { handled: true } | undefined {
+export function copyMouse(owner: object, text: () => string, event: PanelMouse): { handled: true; render?: boolean } | undefined {
 	if (event.y !== 0) return undefined;
 	const columns = copyColumns(event.width - 2 * GUTTER);
 	const x = event.x - GUTTER;
 	if (!columns || x < columns[0] || x >= columns[1]) return undefined;
 	if (event.type === "move") {
 		hovered = new WeakRef(owner);
-		return { handled: true };
+		// Pi redraws after a move only when asked to.
+		return { handled: true, render: true };
 	}
 	if (event.type !== "click" || event.button !== "left") return event.type === "press" ? { handled: true } : undefined;
 	void clipboard(text()).then(() => notify?.("Copied", "info"), () => notify?.("Could not copy message", "error"));
 	return { handled: true };
+}
+
+/**
+ * A panel's own mouse handler shadows Markdown.prototype.handleMouse, which
+ * holds the code-block copy cells. Pass what the panel's cells do not take on
+ * to it, in the Markdown's own columns (inside the gutter).
+ */
+export function panelMouse(owner: object, text: () => string, event: PanelMouse): unknown {
+	const handled = copyMouse(owner, text, event);
+	if (handled) return handled;
+	const fallback = (Markdown.prototype as unknown as { handleMouse?: (event: PanelMouse) => unknown }).handleMouse;
+	return fallback?.call(owner, { ...event, x: event.x - GUTTER, width: event.width - 2 * GUTTER });
+}
+
+const ORIGINAL_MOUSE_EVENT = Symbol.for("will.pi.copy-hover.original-mouse-event");
+type MouseRouter = { handleMouseEvent(raw: { button: number; release?: boolean }): void; requestRender(): void };
+
+/**
+ * Hover has no leave event, and Pi's layout dispatch skips containers, so the
+ * container-level clear in gaps.ts never sees live pointer moves. Clear hover
+ * on every pointer move at the screen level instead; the copy cells under the
+ * pointer re-claim it during dispatch. Redraw when a label may have gone away.
+ */
+export function installHoverRouting(): void {
+	const target = TuiAltScreen.prototype as unknown as MouseRouter & Record<PropertyKey, unknown>;
+	if (typeof target.handleMouseEvent !== "function") return;
+	const original = (target[ORIGINAL_MOUSE_EVENT] ??= target.handleMouseEvent) as MouseRouter["handleMouseEvent"];
+	target.handleMouseEvent = function (this: MouseRouter, raw) {
+		// Motion with no button held (button code 3, motion flag 32).
+		const move = !raw.release && (raw.button & 32) !== 0 && (raw.button & 3) === 3;
+		const had = move && clearCopyHover();
+		original.call(this, raw);
+		if (had) this.requestRender();
+	};
 }

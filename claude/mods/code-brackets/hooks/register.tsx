@@ -51,31 +51,57 @@ export function splitFences(text: string): Segment[] {
 
 type Elements = { Box: any; Text: any; Code: any; Markdown: any; Button: any }
 
-/** Copies one block's code, without fences or label, as pi's click on `│` does. */
+/** Copies one block's code, without fences or label. */
 async function copyCode($: EngineInterface, source: string, surface: UiPressArgument['surface']) {
   const copied = await $.ui.copy({ text: source, surface })
   $.ui.toast(copied.isCopied ? 'Copied' : 'Could not copy code')
 }
 
-function body($: EngineInterface, { Box, Text, Code, Markdown, Button }: Elements, segments: Segment[]) {
+// The copy target, as on message-panels' panels (its `copyCell`): one gap
+// cell after the label, then 4 cells. At rest they are blank. Under the
+// pointer they read COPY, bold on the rule color. A hover can restyle a label
+// but not change its text, so the word is a second Button, drawn
+// `display: none` until its keyed Box is hovered.
+const COPY_LABEL = 'COPY'
+const COPY_GAP = 1
+
+type Copy = (press: UiPressArgument) => void
+
+function copyCell({ Box, Text, Button }: Elements, n: number, copy: Copy) {
+  return (
+    <Box key={`copy-cell-${n}`} width={COPY_LABEL.length} height={1} flexShrink={0}>
+      <Button key={`copy-${n}`} plain onPress={copy}>
+        <Text>{' '.repeat(COPY_LABEL.length)}</Text>
+      </Button>
+      <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }}>
+        <Button key={`copy-label-${n}`} plain onPress={copy}>
+          <Text bold backgroundColor={RULE}>{COPY_LABEL}</Text>
+        </Button>
+      </Box>
+    </Box>
+  )
+}
+
+function body($: EngineInterface, elements: Elements, segments: Segment[]) {
+  const { Box, Text, Code, Markdown } = elements
   let blocks = 0
   return (
     <Box flexDirection="column" gap={1}>
       {segments.map(segment => {
         if (segment.kind === 'markdown') return <Markdown text={segment.text} />
         const n = blocks++
-        const copy = (press: UiPressArgument) => copyCode($, segment.source, press.surface)
+        const copy: Copy = press => copyCode($, segment.source, press.surface)
         return (
           <Box flexDirection="column">
-            <Button key={`label-${n}`} plain onPress={copy}>
+            <Box flexDirection="row" height={1}>
               <Text color={RULE}>{segment.language || '┌──'}</Text>
-            </Button>
+              <Text>{' '.repeat(COPY_GAP)}</Text>
+              {copyCell(elements, n, copy)}
+            </Box>
             <Box flexDirection="column" paddingLeft={2} overflow="hidden">
               <Code source={segment.source || ' '} language={segment.language || undefined} />
               <Box position="absolute" left={0} top={0} bottom={0} width={1}>
-                <Button key={`rule-${n}`} plain onPress={copy}>
-                  <Text color={RULE}>{BAR}</Text>
-                </Button>
+                <Text color={RULE}>{BAR}</Text>
               </Box>
             </Box>
             <Text color={RULE}>└──</Text>
