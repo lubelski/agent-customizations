@@ -98,7 +98,7 @@ export const register: Register = on => {
     await $.tool.register({
       name: TOOL,
       description:
-        'Replace the clickable links shown above the prompt for this session. Send the complete current list each time, with short labels, for the task\'s Linear tickets, pull requests, local mock or Storybook pages, and similar resources. Pass an empty list to clear stale links.',
+        'Replace the clickable links shown above the prompt for this session. Send the complete current list each time, with short labels, for pull requests, work tickets, local servers, and other linkable reference points relevant to the user. Pass an empty list to clear stale links.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -155,7 +155,7 @@ export const register: Register = on => {
         {
           id: 'links:keep',
           scope: 'session',
-          text: 'Keep the task\'s relevant links (Linear tickets, pull requests, local mock or Storybook pages) shown with the set_links tool. Send the complete current list on each update, and clear links that stop being relevant.',
+          text: 'When you open a pull request, pick up a work ticket, start a local server, or otherwise have a linkable reference point that\'s relevant to the user, call set_links in the same turn so the link shows above the prompt. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant.',
         },
       ],
     }
