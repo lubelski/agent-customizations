@@ -415,14 +415,14 @@ export default function (pi: ExtensionAPI, settings?: UiSettingsStore): void {
 	pi.registerTool(defineTool({
 		name: "set_footer_links",
 		label: "Set footer links",
-		description: "Replace the clickable links shown in this session's footer. Send the complete current list, using short labels for relevant Linear tickets, local mock or Storybook pages, pull requests, and similar task resources. Pass an empty list to clear stale links.",
+		description: "Replace the clickable links shown in this session's footer. Send the complete current list, using short labels, for pull requests, work tickets, local servers, and other linkable reference points relevant to the user. Pass an empty list to clear stale links.",
 		promptSnippet: "Set the session footer's relevant task links.",
 		promptGuidelines: [
-			"Keep relevant Linear tickets, local mock or Storybook pages, and pull requests available with set_footer_links; send the complete current list on each update.",
+			"When you open a pull request, pick up a work ticket, start a local server, or otherwise have a linkable reference point that's relevant to the user, call set_footer_links in the same turn so the link shows in the footer. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant.",
 		],
 		parameters: Type.Object({
 			links: Type.Array(Type.Object({
-				label: Type.String({ minLength: 1, maxLength: 32, description: "Short display label, such as SPM-123, Mock, Storybook, or PR #123" }),
+				label: Type.String({ minLength: 1, maxLength: 32, description: "Short display label, such as PR #123 or SPM-123" }),
 				url: Type.String({ minLength: 1, maxLength: 2_048, description: "Absolute http or https URL" }),
 			}, { additionalProperties: false }), { maxItems: MAX_FOOTER_LINKS }),
 		}, { additionalProperties: false }),
