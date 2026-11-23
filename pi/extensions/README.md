@@ -175,7 +175,7 @@ Autocomplete uses three suggestions in compact mode. Pi requires at least three 
 The default full footer keeps a seven-row collapsed pane below the editor:
 
 - while idle, the pane shows project, usage, context, model, task links, MCP servers, and active visual extensions;
-- the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for resources such as Linear tickets, local mock or Storybook pages, and pull requests;
+- the agent-facing `set_footer_links` tool replaces the session's clickable task links, with short labels for pull requests, work tickets, local servers, and other linkable reference points relevant to the user. Its prompt guideline asks the agent to call it in the same turn it opens a pull request, picks up a work ticket, or starts a local server, to keep a link while its task is still the topic (a pull request stays after it merges), and to remove links that are no longer relevant;
 - task links are branch-local session state, survive resume and reload, and can be cleared by setting an empty list;
 - `set_task_workspace({ path: "/absolute/task/directory" })` updates `F`, `B`, and `W` together when the agent claims or switches worktrees; it uses Git metadata, not worktree naming conventions. This is display-only: tool cwd, relative path resolution, and the title banner's session directory are unchanged;
 - the workspace selection survives resume/reload on the active session branch. Git metadata refreshes after each agent run; detached HEAD displays `B: -`. Pass `path: null` to restore the session directory. Missing saved directories fall back to the session directory. Shell `cd` and incidental reads do not implicitly select a workspace;
