@@ -5,7 +5,8 @@ This repository contains independent Claude Code and Pi customizations.
 - `claude/`: read `claude/AGENTS.md` before changing mods. Its development commands are relative to `claude/`.
 - `pi/`: Node package, extensions, themes, and tests. Run `npm ci --ignore-scripts` and `npm run check` from `pi/`.
 - `.claude-plugin/marketplace.json`: root marketplace; plugin sources must point into `claude/mods/`.
-- `.github/workflows/ci.yml`: Pi checks, with `pi/` as the run working directory.
+- `skills/`: shared skill bundles. Read `skills/README.md` before changing or installing one.
+- `.github/workflows/ci.yml`: Pi checks, with `pi/` as the run working directory, and the tests of the `skills/` scripts.
 
 Keep the primary checkout on `main`; use Worktrunk task worktrees under `.wt/`.
 

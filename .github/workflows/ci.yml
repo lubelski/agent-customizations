@@ -40,3 +40,13 @@ jobs:
           name: terminal-logs-${{ matrix.os }}
           path: pi/test-artifacts/
           if-no-files-found: ignore
+
+  skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node --test "skills/remember-this-for-later/tests/*.test.mjs"
