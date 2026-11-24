@@ -155,7 +155,7 @@ export const register: Register = on => {
         {
           id: 'links:keep',
           scope: 'session',
-          text: 'When you open a pull request, pick up a work ticket, start a local server, or otherwise have a linkable reference point that\'s relevant to the user, call set_links in the same turn so the link shows above the prompt. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant.',
+          text: 'Call set_links in the same turn you learn of a linkable reference point that\'s relevant to the user, such as a pull request, work ticket, or local server. That includes ones you open or start yourself, ones a subagent or background task reports back, and ones the user gives you. The links show above the prompt in the main session, so keep them current there even when other agents do the work. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant.',
         },
       ],
     }
