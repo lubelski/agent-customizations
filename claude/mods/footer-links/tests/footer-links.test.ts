@@ -1,5 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
+import type { On } from 'claude-code'
 import { MAX_LINKS, normalizeLinks } from '../hooks/register.tsx'
 
 test('cleans labels and drops duplicate urls', async () => {
@@ -68,11 +69,14 @@ test('a list with no groups keeps its order', async () => {
   expect(normalizeLinks(flat)).toEqual(flat)
 })
 
+const OLD_TOOL = 'mcp__links__set_links'
+const TOOL = 'mcp__footer-links__set_footer_links'
+
 const BAND = { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 80 } as never
 
 /** The band as drawn: each row Box the outer Box wraps by, as its shown text. */
 async function bandUnits($: Engine): Promise<string[]> {
-  const ui = await $.ui.mount({ plugin: 'links', surface: 'terminal', component: 'AbovePrompt', props: BAND })
+  const ui = await $.ui.mount({ plugin: 'footer-links', surface: 'terminal', component: 'AbovePrompt', props: BAND })
   const outer = (await ui.drawn()) as { children: Array<{ children: unknown[] }> }
   const text = (node: unknown): string =>
     typeof node === 'string' ? node : ((node as { children?: unknown[] }).children ?? []).map(text).join('')
@@ -81,7 +85,7 @@ async function bandUnits($: Engine): Promise<string[]> {
 
 test('draws each group as one unit, joined by │', async $ => {
   await $.tool.call({
-    tool: 'mcp__links__set_links',
+    tool: TOOL,
     links: [
       { label: 'SPM-0', url: 'https://l.app/SPM-0' },
       { label: 'SPM-1', url: 'https://l.app/SPM-1', group: 'SPM-1' },
@@ -95,7 +99,7 @@ test('draws each group as one unit, joined by │', async $ => {
 
 test('draws a list without groups as before, one unit per link', async $ => {
   await $.tool.call({
-    tool: 'mcp__links__set_links',
+    tool: TOOL,
     links: [
       { label: 'PR #12', url: 'https://g.com/pull/12' },
       { label: 'LIN-1', url: 'https://l.app/LIN-1' },
@@ -104,16 +108,32 @@ test('draws a list without groups as before, one unit per link', async $ => {
   expect(await bandUnits($)).toEqual(['PR #12', ' · LIN-1'])
 })
 
-test('restores an old flat call from the transcript', async ($, on) => {
-  const use = (links: unknown) => ({ tool: 'mcp__links__set_links', input: { links } })
-  const value = [
-    { role: 'assistant', text: '', toolUses: [use([{ label: 'old', url: 'https://a.b/old' }])] },
-    { role: 'assistant', text: '', toolUses: [use([{ label: 'PR #12', url: 'https://g.com/pull/12' }, { label: 'LIN-1', url: 'https://l.app/LIN-1' }])] },
-  ]
+/** Starts a session whose transcript holds these set_links calls, oldest first. */
+async function resume($: Engine, on: On, calls: Array<[tool: string, links: unknown]>): Promise<void> {
+  const value = calls.map(([tool, links]) => ({ role: 'assistant', text: '', toolUses: [{ tool, input: { links } }] }))
   on('session.messages', async () => ({ value }) as never)
-  on('tool.register', async () => ({ value: { tool: 'set_links' } }) as never)
-  on('command.register', async () => ({ value: { command: 'links' } }) as never)
+  on('tool.register', async () => ({ value: { tool: 'set_footer_links' } }) as never)
+  on('command.register', async () => ({ value: { command: 'footer-links' } }) as never)
   on('session.start', async () => ({ cwd: '/' }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+}
+
+test('restores an old flat call from before the rename', async ($, on) => {
+  await resume($, on, [
+    [OLD_TOOL, [{ label: 'old', url: 'https://a.b/old' }]],
+    [OLD_TOOL, [{ label: 'PR #12', url: 'https://g.com/pull/12' }, { label: 'LIN-1', url: 'https://l.app/LIN-1' }]],
+  ])
   expect(await bandUnits($)).toEqual(['PR #12', ' · LIN-1'])
+})
+
+test('restores the last grouped call, under either name', async ($, on) => {
+  await resume($, on, [
+    [OLD_TOOL, [{ label: 'old', url: 'https://a.b/old' }]],
+    [TOOL, [
+      { label: 'SPM-1', url: 'https://l.app/SPM-1', group: 'SPM-1' },
+      { label: 'SPM-2', url: 'https://l.app/SPM-2', group: 'SPM-2' },
+      { label: '#11', url: 'https://g.com/pull/11', group: 'SPM-1' },
+    ]],
+  ])
+  expect(await bandUnits($)).toEqual(['SPM-1 · #11', ' │ SPM-2'])
 })

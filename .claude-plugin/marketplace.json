@@ -15,9 +15,9 @@
       "description": "Code fences in assistant replies drawn with a language label, a muted left rule and a short foot"
     },
     {
-      "name": "links",
-      "source": "./claude/mods/links",
-      "description": "A row of clickable task links above the prompt, kept by the model with a set_links tool"
+      "name": "footer-links",
+      "source": "./claude/mods/footer-links",
+      "description": "A row of clickable task links above the prompt, kept by the model with a set_footer_links tool"
     }
   ]
 }
