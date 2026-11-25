@@ -1,4 +1,4 @@
-export type Link = { label: string; url: string }
+export type Link = { label: string; url: string; group?: string }
 
 declare module 'claude-code' {
   interface PluginState {
