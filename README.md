@@ -17,6 +17,10 @@ Personal customizations for Claude Code and Pi, combined from `claude-customizat
 
 [Alfred agent launchers](alfred/README.md) add `pi`, `claude`, `opus`, and `fable` keywords with optional CLI arguments. Each opens a new iTerm window. The workflow has its own builder and copy-based installer, separate from runtime configuration.
 
+## Statusline recipe
+
+[Statusline recipe](claude/statusline/v1/README.md) describes a Claude Code statusline as a base, separate segments, and an assemble step, so an agent or person can build a script with only the segments they want. It is documentation, not an installed file.
+
 ## Migration status
 
 This is a private consolidation repository. Existing installations still use the original repositories; creating this repo does not deploy or migrate them. Installation commands in the project documentation are for a future, explicit migration only. Do not run them as part of repository setup.
