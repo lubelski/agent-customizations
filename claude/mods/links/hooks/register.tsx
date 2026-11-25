@@ -7,22 +7,31 @@ import type { Link } from '../types'
 // the task's links (tickets, pull requests, mock pages), drawn as clickable
 // links in the band above the prompt. The list lives in $.state for the
 // session and is recovered from the transcript's last set_links call after a
-// resume, so a reload or a restart loses nothing.
+// resume, so a reload or a restart loses nothing. A link may name a group: the
+// links of one piece of work (its ticket, pull request and agent session) draw
+// together, and the band wraps between groups.
 
-export const MAX_LINKS = 8
+export const MAX_LINKS = 12
 const MAX_LABEL = 32
+const MAX_GROUP = 32
 const MAX_URL = 2048
 const TOOL = 'set_links'
 const TOOL_FULL = 'mcp__links__set_links'
 const ACCENT = '#d97757'
 
+// `group` is optional, so a list stored before it existed is still valid: the
+// shape stays `links-1`.
 const links = atom({ plugin: 'links', key: 'links' } as const, [] as Link[], { shape: 'links-1' })
 
 function cleanLabel(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** The list validated, cleaned and deduplicated by URL; throws with the reason the model reads. */
+/**
+ * The list validated, cleaned and deduplicated by URL, its groups drawn
+ * together in the order each group first appears; throws with the reason the
+ * model reads. Links with no group form one group of their own.
+ */
 export function normalizeLinks(value: unknown): Link[] {
   if (!Array.isArray(value)) throw new Error('links must be an array')
   if (value.length > MAX_LINKS) throw new Error(`links are limited to ${MAX_LINKS} items`)
@@ -30,8 +39,9 @@ export function normalizeLinks(value: unknown): Link[] {
   const seen = new Set<string>()
   for (const item of value) {
     if (!item || typeof item !== 'object') throw new Error('each link must have a label and a url')
-    const { label: rawLabel, url: rawUrl } = item as Partial<Link>
+    const { label: rawLabel, url: rawUrl, group: rawGroup } = item as Partial<Link>
     if (typeof rawLabel !== 'string' || typeof rawUrl !== 'string') throw new Error('each link must have a string label and url')
+    if (rawGroup !== undefined && typeof rawGroup !== 'string') throw new Error(`a link group must be a string: ${rawLabel}`)
     const label = cleanLabel(rawLabel)
     if (!label) throw new Error('a link label cannot be empty')
     if (label.length > MAX_LABEL) throw new Error(`link labels are limited to ${MAX_LABEL} characters: ${label}`)
@@ -45,11 +55,25 @@ export function normalizeLinks(value: unknown): Link[] {
       throw new Error(`invalid link url: ${url}`)
     }
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error(`links must use http or https: ${url}`)
+    const group = rawGroup === undefined ? '' : cleanLabel(rawGroup)
+    if (group.length > MAX_GROUP) throw new Error(`link groups are limited to ${MAX_GROUP} characters: ${group}`)
     if (seen.has(url)) continue
     seen.add(url)
-    out.push({ label, url })
+    out.push(group ? { label, url, group } : { label, url })
   }
-  return out
+  return groupLinks(out).flat()
+}
+
+/** The links in runs of one group each, in the order each group first appears. */
+export function groupLinks(list: readonly Link[]): Link[][] {
+  const groups = new Map<string, Link[]>()
+  for (const link of list) {
+    const key = link.group ?? ''
+    const members = groups.get(key)
+    if (members) members.push(link)
+    else groups.set(key, [link])
+  }
+  return [...groups.values()]
 }
 
 /** The last set_links call's list in the conversation, for a session resumed or a mod reloaded with no state. */
@@ -98,7 +122,7 @@ export const register: Register = on => {
     await $.tool.register({
       name: TOOL,
       description:
-        'Replace the clickable links shown above the prompt for this session. Send the complete current list each time, with short labels, for pull requests, work tickets, local servers, and other linkable reference points relevant to the user. Pass an empty list to clear stale links.',
+        'Replace the clickable links shown above the prompt for this session. Send the complete current list each time, with short labels, for pull requests, work tickets, local servers, and other linkable reference points relevant to the user. Pass an empty list to clear stale links. When the links belong to more than one piece of work, give each link a group: one key for each piece of work, such as a ticket with its pull request and its agent session. Do not group by kind, such as all pull requests together. Put the ticket first in its group. A label does not need to say which work it belongs to, because the group shows that.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -110,6 +134,11 @@ export const register: Register = on => {
               properties: {
                 label: { type: 'string', maxLength: MAX_LABEL, description: 'Short label, such as "PR #12" or "LIN-123"' },
                 url: { type: 'string', maxLength: MAX_URL, description: 'An http or https URL' },
+                group: {
+                  type: 'string',
+                  maxLength: MAX_GROUP,
+                  description: 'Optional key for one piece of work, such as its ticket ID. Links with the same key draw together. The key is not shown.',
+                },
               },
               required: ['label', 'url'],
               additionalProperties: false,
@@ -155,7 +184,7 @@ export const register: Register = on => {
         {
           id: 'links:keep',
           scope: 'session',
-          text: 'Call set_links in the same turn you learn of a linkable reference point that\'s relevant to the user, such as a pull request, work ticket, or local server. That includes ones you open or start yourself, ones a subagent or background task reports back, and ones the user gives you. The links show above the prompt in the main session, so keep them current there even when other agents do the work. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant.',
+          text: 'Call set_links in the same turn you learn of a linkable reference point that\'s relevant to the user, such as a pull request, work ticket, or local server. That includes ones you open or start yourself, ones a subagent or background task reports back, and ones the user gives you. The links show above the prompt in the main session, so keep them current there even when other agents do the work. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant. When the links cover more than one piece of work, group them by work: a ticket, its pull request, and its agent session share one group key. Do not group links by kind. Put the ticket first in its group, and keep labels short, without a parenthetical that only repeats which work the link belongs to.',
         },
       ],
     }
@@ -164,18 +193,27 @@ export const register: Register = on => {
   // A plain Button per link, its label alone: a Link's OSC 8 span becomes
   // `label URL` on a terminal the engine does not know (Rex), three times the
   // width. A press opens the URL with the host's opener.
+  //
+  // Each group is one row Box, so the band wraps between groups and never
+  // inside one. A list with no group keys wraps between links, as before.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const list = await read($, links)
     if (e.props.hasSurvey || list.length === 0) return next(e)
     const { Box, Text, Button } = $.ui.resolve(e)
+    const grouped = list.some(link => link.group)
+    const units = grouped ? groupLinks(list) : list.map(link => [link])
+    let index = 0
     return (
       <Box flexDirection="row" flexWrap="wrap" justifyContent="flex-end" width={e.props.bodyColumns} paddingX={1}>
-        {list.map((link, i) => (
-          <Box flexDirection="row">
-            {i > 0 ? <Text dimColor> · </Text> : null}
-            <Button key={`link-${i}`} plain onPress={() => openUrl($, link.url)}>
-              <Text color={ACCENT} underline>{link.label}</Text>
-            </Button>
+        {units.map((unit, u) => (
+          <Box key={`unit-${u}`} flexDirection="row">
+            {u > 0 ? <Text dimColor>{grouped ? ' │ ' : ' · '}</Text> : null}
+            {unit.flatMap((link, i) => [
+              i > 0 ? <Text dimColor> · </Text> : null,
+              <Button key={`link-${index++}`} plain onPress={() => openUrl($, link.url)}>
+                <Text color={ACCENT} underline>{link.label}</Text>
+              </Button>,
+            ])}
           </Box>
         ))}
       </Box>
