@@ -169,7 +169,7 @@ function summarize(input: unknown): Detail {
   }
   for (const value of Object.values(record)) {
     if (typeof value === 'string' && value.trim()) return { text: oneLine(value), kind: 'other' }
-    // A list of labelled items (set_links): its labels.
+    // A list of labelled items (set_footer_links): its labels.
     if (Array.isArray(value) && value.length > 0 && value.every(v => v && typeof v === 'object' && typeof (v as { label?: unknown }).label === 'string')) {
       return { text: value.map(v => oneLine((v as { label: string }).label)).join(', '), kind: 'other' }
     }

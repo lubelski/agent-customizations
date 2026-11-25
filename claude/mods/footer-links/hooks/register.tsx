@@ -6,7 +6,7 @@ import type { Link } from '../types'
 // After pi-customizations' set_footer_links: the model keeps a short list of
 // the task's links (tickets, pull requests, mock pages), drawn as clickable
 // links in the band above the prompt. The list lives in $.state for the
-// session and is recovered from the transcript's last set_links call after a
+// session and is recovered from the transcript's last set_footer_links call after a
 // resume, so a reload or a restart loses nothing. A link may name a group: the
 // links of one piece of work (its ticket, pull request and agent session) draw
 // together, and the band wraps between groups.
@@ -15,13 +15,16 @@ export const MAX_LINKS = 12
 const MAX_LABEL = 32
 const MAX_GROUP = 32
 const MAX_URL = 2048
-const TOOL = 'set_links'
-const TOOL_FULL = 'mcp__links__set_links'
+const TOOL = 'set_footer_links'
+const TOOL_FULL = 'mcp__footer-links__set_footer_links'
+// The tool's name before the mod was renamed from `links`: a resumed session
+// from before the rename restores its list from calls under this name.
+const OLD_TOOL_FULL = 'mcp__links__set_links'
 const ACCENT = '#d97757'
 
 // `group` is optional, so a list stored before it existed is still valid: the
 // shape stays `links-1`.
-const links = atom({ plugin: 'links', key: 'links' } as const, [] as Link[], { shape: 'links-1' })
+const links = atom({ plugin: 'footer-links', key: 'links' } as const, [] as Link[], { shape: 'links-1' })
 
 function cleanLabel(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim()
@@ -76,13 +79,13 @@ export function groupLinks(list: readonly Link[]): Link[][] {
   return [...groups.values()]
 }
 
-/** The last set_links call's list in the conversation, for a session resumed or a mod reloaded with no state. */
+/** The last set_footer_links (or old set_links) call's list in the conversation, for a session resumed or a mod reloaded with no state. */
 function linksFromTranscript(messages: ReadonlyArray<{ toolUses: ReadonlyArray<{ tool: string; input: unknown }> }>): Link[] | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const uses = messages[i]?.toolUses ?? []
     for (let j = uses.length - 1; j >= 0; j -= 1) {
       const use = uses[j]
-      if (use?.tool !== TOOL_FULL) continue
+      if (use?.tool !== TOOL_FULL && use?.tool !== OLD_TOOL_FULL) continue
       try {
         return normalizeLinks((use.input as { links?: unknown })?.links)
       } catch {
@@ -150,29 +153,29 @@ export const register: Register = on => {
       },
       isDeferred: false,
     })
-    await $.command.register({ name: 'links', description: 'Show the session links, or clear them', argumentHint: '[clear]' })
+    await $.command.register({ name: 'footer-links', description: 'Show the session links, or clear them', argumentHint: '[clear]' })
     await restore($)
     return next(e)
   })
 
-  on('tool.call', { tool: 'mcp__links__set_links' }, async ($, e) => {
+  on('tool.call', { tool: TOOL_FULL }, async ($, e) => {
     let list: Link[]
     try {
       list = normalizeLinks((e as { links?: unknown }).links)
     } catch (error) {
-      return { deny: `set_links: ${(error as Error).message}` }
+      return { deny: `${TOOL}: ${(error as Error).message}` }
     }
     await update($, links, () => list)
     return { result: describe(list) }
-  }).catch(() => ({ deny: 'set_links: the links mod failed to store the list.' }))
+  }).catch(() => ({ deny: `${TOOL}: the footer-links mod failed to store the list.` }))
 
-  on('command.run', { command: 'links' }, async ($, e) => {
+  on('command.run', { command: 'footer-links' }, async ($, e) => {
     if (e.args.trim() === 'clear') {
       await update($, links, () => [])
       return { text: 'Links cleared.' }
     }
     const list = await read($, links)
-    if (list.length === 0) return { text: 'No links set. The model sets them with set_links; /links clear removes them.' }
+    if (list.length === 0) return { text: 'No links set. The model sets them with set_footer_links; /footer-links clear removes them.' }
     return { text: list.map(l => `- ${l.label}: ${l.url}`).join('\n') }
   })
 
@@ -182,9 +185,9 @@ export const register: Register = on => {
       sections: [
         ...sections,
         {
-          id: 'links:keep',
+          id: 'footer-links:keep',
           scope: 'session',
-          text: 'Call set_links in the same turn you learn of a linkable reference point that\'s relevant to the user, such as a pull request, work ticket, or local server. That includes ones you open or start yourself, ones a subagent or background task reports back, and ones the user gives you. The links show above the prompt in the main session, so keep them current there even when other agents do the work. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant. When the links cover more than one piece of work, group them by work: a ticket, its pull request, and its agent session share one group key. Do not group links by kind. Put the ticket first in its group, and keep labels short, without a parenthetical that only repeats which work the link belongs to.',
+          text: 'Call set_footer_links in the same turn you learn of a linkable reference point that\'s relevant to the user, such as a pull request, work ticket, or local server. That includes ones you open or start yourself, ones a subagent or background task reports back, and ones the user gives you. The links show above the prompt in the main session, so keep them current there even when other agents do the work. Send the complete current list each time. Keep a link listed while its task is still the topic, including a pull request after it merges. Remove links when they are no longer relevant. When the links cover more than one piece of work, group them by work: a ticket, its pull request, and its agent session share one group key. Do not group links by kind. Put the ticket first in its group, and keep labels short, without a parenthetical that only repeats which work the link belongs to.',
         },
       ],
     }

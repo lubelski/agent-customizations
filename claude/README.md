@@ -6,7 +6,7 @@ Personal mods for [Claude Code](https://claude.com/claude-code), alongside the [
 
 - [`message-panels`](mods/message-panels) draws assistant replies and typed prompts as shaded panels (half-block caps by default, whole-row spacing with the `fontCompat` option), in a warm palette near Claude's orange. Tool calls shrink to one dim line each, such as `› Bash · git status`, and successful tool output stays hidden until ctrl+o. Rows keep one blank row between messages, never two.
 - [`code-brackets`](mods/code-brackets) draws each fenced code block in an assistant reply as its language label, a muted `│` rule beside the highlighted code, and a short `└──` foot. Clicking the rule or the label copies that block's code, without fences or label. It works alone or inside `message-panels`, in either order.
-- [`links`](mods/links) keeps a row of clickable task links above the prompt: tickets, pull requests, mock pages. The model sets them with a `set_links` tool, `/links` lists or clears them, and a resumed session gets them back from its transcript.
+- [`footer-links`](mods/footer-links) keeps a row of clickable task links above the prompt: tickets, pull requests, mock pages. The model sets them with a `set_footer_links` tool, `/footer-links` lists or clears them, and a resumed session gets them back from its transcript.
 
 ## To do
 
@@ -21,7 +21,7 @@ At the prompt of a Claude Code terminal session:
 ```
 /plugin install message-panels --marketplace lubelski/agent-customizations
 /plugin install code-brackets --marketplace lubelski/agent-customizations
-/plugin install links --marketplace lubelski/agent-customizations
+/plugin install footer-links --marketplace lubelski/agent-customizations
 ```
 
 Answer `y` to add the marketplace, then pick a scope. The repository is private, so the machine needs a git credential for github.com (an SSH key, or `gh auth login` then `gh auth setup-git`).

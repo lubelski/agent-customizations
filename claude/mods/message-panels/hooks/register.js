@@ -282,7 +282,7 @@ function summarize(input) {
         var value = _b[_a];
         if (typeof value === 'string' && value.trim())
             return { text: oneLine(value), kind: 'other' };
-        // A list of labelled items (set_links): its labels.
+        // A list of labelled items (set_footer_links): its labels.
         if (Array.isArray(value) && value.length > 0 && value.every(function (v) { return v && typeof v === 'object' && typeof v.label === 'string'; })) {
             return { text: value.map(function (v) { return oneLine(v.label); }).join(', '), kind: 'other' };
         }
